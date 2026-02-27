@@ -33,6 +33,8 @@ export default function App() {
   const [redoStack, setRedoStack] = useState<EditAction[]>([]);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [batchInput, setBatchInput] = useState("");
+  const [leftPaneWidth, setLeftPaneWidth] = useState(280);
+  const [resizingLeftPane, setResizingLeftPane] = useState(false);
 
   const saveTimers = useRef<Record<string, number>>({});
   const imagesRef = useRef<ImageEntry[]>([]);
@@ -48,6 +50,24 @@ export default function App() {
   useEffect(() => {
     imagesRef.current = images;
   }, [images]);
+
+  useEffect(() => {
+    if (!resizingLeftPane) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const min = 220;
+      const max = 560;
+      setLeftPaneWidth(Math.min(max, Math.max(min, e.clientX)));
+    };
+    const onMouseUp = () => setResizingLeftPane(false);
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [resizingLeftPane]);
 
   const reloadImages = async (override?: { include?: string[]; exclude?: string[]; category?: string }) => {
     const data = await listImages({
@@ -259,13 +279,29 @@ export default function App() {
         <div className="ml-auto text-xs text-slate-400">{message}</div>
       </header>
 
-      <main className="relative grid h-[calc(100vh-44px)] grid-cols-[220px_1fr_360px]">
+      <main
+        className="relative grid h-[calc(100vh-44px)]"
+        style={{ gridTemplateColumns: `${leftPaneWidth}px 1fr 360px` }}
+      >
         <CategoryTree
           categories={categories}
           current={activeCategory}
+          activeImage={activeImage}
+          onOpenDetail={() => {
+            if (activeImageId) setViewMode("detail");
+          }}
           onSelect={async (c) => {
             setActiveCategory(c);
             await reloadImages({ category: c });
+          }}
+        />
+
+        <div
+          className="absolute bottom-0 top-0 z-10 w-1 cursor-col-resize bg-cyan-700/0 hover:bg-cyan-500/60"
+          style={{ left: `${leftPaneWidth - 1}px` }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setResizingLeftPane(true);
           }}
         />
 

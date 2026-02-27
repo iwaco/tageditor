@@ -1,14 +1,76 @@
+import { useEffect, useState } from "react";
+
+import type { ImageEntry } from "../types/models";
+
 interface Props {
   categories: string[];
   current: string;
+  activeImage: ImageEntry | null;
+  onOpenDetail: () => void;
   onSelect: (category: string) => void;
 }
 
-export function CategoryTree({ categories, current, onSelect }: Props) {
+export function CategoryTree({ categories, current, activeImage, onOpenDetail, onSelect }: Props) {
+  const [previewHeight, setPreviewHeight] = useState(190);
+  const [resizingPreview, setResizingPreview] = useState(false);
+
+  useEffect(() => {
+    if (!resizingPreview) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const container = document.getElementById("category-pane");
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const next = e.clientY - rect.top - 24;
+      setPreviewHeight(Math.max(120, Math.min(420, next)));
+    };
+    const onMouseUp = () => setResizingPreview(false);
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [resizingPreview]);
+
   return (
-    <div className="h-full overflow-y-auto border-r border-slate-800 p-3">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-300">Categories</h2>
-      <ul className="space-y-1">
+    <div id="category-pane" className="flex h-full min-h-0 flex-col border-r border-slate-800 p-3">
+      <div className="mb-3">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Preview</div>
+        <button
+          onClick={onOpenDetail}
+          className="w-full overflow-hidden rounded border border-slate-700 bg-slate-900 text-left hover:border-cyan-600"
+          style={{ height: `${previewHeight}px` }}
+          disabled={!activeImage}
+        >
+          {activeImage ? (
+            <>
+              <img
+                src={activeImage.thumbnailUrl}
+                alt={activeImage.baseName}
+                className="h-[calc(100%-44px)] w-full object-cover"
+              />
+              <div className="border-t border-slate-700 p-2 text-xs">
+                <div className="truncate">{activeImage.baseName}</div>
+                <div className="text-slate-400">{activeImage.tags.length} tags</div>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-slate-500">No image selected</div>
+          )}
+        </button>
+        <div
+          className="mt-1 h-1 w-full cursor-row-resize rounded bg-cyan-700/0 hover:bg-cyan-500/60"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setResizingPreview(true);
+          }}
+        />
+      </div>
+
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Categories</h2>
+      <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         <li>
           <button
             onClick={() => onSelect("all")}

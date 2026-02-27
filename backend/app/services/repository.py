@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image
+from PIL import UnidentifiedImageError
 
 from app.models.schemas import ImageEntryModel, ImageMetadataModel, TagStatsModel
 from app.services.tags import normalize_tags, parse_tag_text, serialize_tags
@@ -51,6 +52,11 @@ class DatasetRepository:
         return relative_image_path.replace("\\", "/")
 
     @staticmethod
+    def _should_skip_image_file(file: Path) -> bool:
+        # AppleDouble files (e.g. ._0010.jpg) are metadata sidecars, not images.
+        return file.name.startswith("._")
+
+    @staticmethod
     def encode_id(image_id: str) -> str:
         return base64.urlsafe_b64encode(image_id.encode("utf-8")).decode("ascii")
 
@@ -68,6 +74,8 @@ class DatasetRepository:
         for file in root.rglob("*"):
             if not file.is_file() or file.suffix.lower() not in SUPPORTED_EXTS:
                 continue
+            if self._should_skip_image_file(file):
+                continue
 
             relative_image_path = str(file.relative_to(root)).replace("\\", "/")
             image_id = self._to_image_id(relative_image_path)
@@ -83,8 +91,12 @@ class DatasetRepository:
                     raise RepositoryError(f"invalid UTF-8 in tag file: {relative_tag_path}") from exc
 
             stat = file.stat()
-            with Image.open(file) as img:
-                width, height = img.size
+            try:
+                with Image.open(file) as img:
+                    width, height = img.size
+            except (UnidentifiedImageError, OSError):
+                # Keep scanning even if one entry is not a valid image payload.
+                continue
 
             encoded_id = self.encode_id(image_id)
             entry = ImageEntryModel(
