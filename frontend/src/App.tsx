@@ -24,6 +24,7 @@ export default function App() {
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
+  const [activeImage, setActiveImage] = useState<ImageEntry | null>(null);
   const [stats, setStats] = useState<TagStats[]>([]);
   const [includeTags, setIncludeTags] = useState<string[]>([]);
   const [excludeTags, setExcludeTags] = useState<string[]>([]);
@@ -39,7 +40,6 @@ export default function App() {
   const saveTimers = useRef<Record<string, number>>({});
   const imagesRef = useRef<ImageEntry[]>([]);
 
-  const activeImage = useMemo(() => images.find((i) => i.id === activeImageId) ?? null, [images, activeImageId]);
   const tagDictionary = useMemo(() => stats.map((s) => s.tag), [stats]);
 
   const refreshStats = async () => {
@@ -50,6 +50,17 @@ export default function App() {
   useEffect(() => {
     imagesRef.current = images;
   }, [images]);
+
+  useEffect(() => {
+    if (!activeImageId) {
+      setActiveImage(null);
+      return;
+    }
+    const next = images.find((i) => i.id === activeImageId) ?? null;
+    if (next) {
+      setActiveImage(next);
+    }
+  }, [images, activeImageId]);
 
   useEffect(() => {
     if (!resizingLeftPane) return;
@@ -78,9 +89,11 @@ export default function App() {
       pageSize: 1000,
     });
     setImages(data.items);
-    if (data.items.length && !data.items.some((v) => v.id === activeImageId)) {
-      setActiveImageId(data.items[0].id);
-    }
+    const hasCurrent = !!activeImageId && data.items.some((v) => v.id === activeImageId);
+    const nextActiveId = hasCurrent ? activeImageId : (data.items[0]?.id ?? null);
+    const nextActiveImage = nextActiveId ? (data.items.find((v) => v.id === nextActiveId) ?? null) : null;
+    setActiveImageId(nextActiveId);
+    setActiveImage(nextActiveImage);
   };
 
   const applyLocalTags = (imageId: string, nextTags: string[], pushHistory: boolean) => {
@@ -142,7 +155,9 @@ export default function App() {
       setSelected([]);
       setUndoStack([]);
       setRedoStack([]);
-      setActiveImageId(res.images[0]?.id ?? null);
+      const first = res.images[0] ?? null;
+      setActiveImageId(first?.id ?? null);
+      setActiveImage(first);
       setMessage(`Loaded ${res.total} images`);
     } catch (err) {
       setMessage((err as Error).message);
@@ -151,6 +166,7 @@ export default function App() {
 
   const onClickImage = (id: string, index: number, e: React.MouseEvent<HTMLButtonElement>) => {
     setActiveImageId(id);
+    setActiveImage(images[index] ?? null);
     if (e.shiftKey && lastSelectedIndex !== null) {
       const [start, end] = [lastSelectedIndex, index].sort((a, b) => a - b);
       const range = images.slice(start, end + 1).map((v) => v.id);
@@ -319,6 +335,8 @@ export default function App() {
               onClickImage={onClickImage}
               onOpenDetail={(id) => {
                 setActiveImageId(id);
+                const target = images.find((v) => v.id === id) ?? null;
+                setActiveImage(target);
                 setViewMode("detail");
               }}
             />

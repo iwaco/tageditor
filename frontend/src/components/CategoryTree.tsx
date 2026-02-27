@@ -11,8 +11,9 @@ interface Props {
 }
 
 export function CategoryTree({ categories, current, activeImage, onOpenDetail, onSelect }: Props) {
-  const [previewHeight, setPreviewHeight] = useState(190);
+  const [previewHeight, setPreviewHeight] = useState(240);
   const [resizingPreview, setResizingPreview] = useState(false);
+  const [manualResized, setManualResized] = useState(false);
 
   useEffect(() => {
     if (!resizingPreview) return;
@@ -33,6 +34,22 @@ export function CategoryTree({ categories, current, activeImage, onOpenDetail, o
       window.removeEventListener("mouseup", onMouseUp);
     };
   }, [resizingPreview]);
+
+  useEffect(() => {
+    if (manualResized) return;
+    const container = document.getElementById("category-pane");
+    if (!container) return;
+
+    const updateDefaultHeight = () => {
+      const next = Math.floor(container.clientHeight * (2 / 3));
+      setPreviewHeight(Math.max(120, Math.min(420, next)));
+    };
+
+    updateDefaultHeight();
+    const observer = new ResizeObserver(updateDefaultHeight);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [manualResized]);
 
   return (
     <div id="category-pane" className="flex h-full min-h-0 flex-col border-r border-slate-800 p-3">
@@ -64,6 +81,7 @@ export function CategoryTree({ categories, current, activeImage, onOpenDetail, o
           className="mt-1 h-1 w-full cursor-row-resize rounded bg-cyan-700/0 hover:bg-cyan-500/60"
           onMouseDown={(e) => {
             e.preventDefault();
+            setManualResized(true);
             setResizingPreview(true);
           }}
         />

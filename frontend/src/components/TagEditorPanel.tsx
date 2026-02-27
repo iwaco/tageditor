@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import type { ImageEntry } from "../types/models";
 
 interface Props {
@@ -18,6 +18,31 @@ function parseInputTags(input: string): string[] {
 
 export function TagEditorPanel({ activeImage, allTags, onSetTags, onFilterInclude, onFilterExclude }: Props) {
   const [input, setInput] = useState("");
+  const [tagCloudHeight, setTagCloudHeight] = useState(224);
+  const [resizingTagCloud, setResizingTagCloud] = useState(false);
+  const dragStartRef = useRef<{ y: number; h: number } | null>(null);
+
+  useEffect(() => {
+    if (!resizingTagCloud) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const start = dragStartRef.current;
+      if (!start) return;
+      const next = start.h + (e.clientY - start.y);
+      setTagCloudHeight(Math.max(120, Math.min(520, next)));
+    };
+    const onMouseUp = () => {
+      setResizingTagCloud(false);
+      dragStartRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [resizingTagCloud]);
 
   const suggestions = useMemo(() => {
     const q = input.trim().toLowerCase();
@@ -26,7 +51,11 @@ export function TagEditorPanel({ activeImage, allTags, onSetTags, onFilterInclud
   }, [allTags, input]);
 
   if (!activeImage) {
-    return <div className="h-full border-l border-slate-800 p-3 text-sm text-slate-400">No image selected</div>;
+    return (
+      <div className="flex h-full min-h-0 flex-col border-l border-slate-800 p-3 text-sm text-slate-400">
+        No image selected
+      </div>
+    );
   }
 
   const removeTag = (tag: string) => onSetTags(activeImage.tags.filter((t) => t !== tag));
@@ -42,24 +71,37 @@ export function TagEditorPanel({ activeImage, allTags, onSetTags, onFilterInclud
   };
 
   return (
-    <div className="flex h-full flex-col border-l border-slate-800 p-3">
+    <div className="flex h-full min-h-0 flex-col border-l border-slate-800 p-3">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-300">Tag Cloud</h2>
-      <div className="mb-3 flex flex-wrap gap-2 overflow-y-auto rounded border border-slate-800 bg-slate-900 p-2">
-        {activeImage.tags.map((tag) => (
-          <div key={tag} className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-xs">
-            <button onClick={() => onFilterInclude(tag)} className="font-mono text-green-300" title="include">
-              +
-            </button>
-            <button onClick={() => onFilterExclude(tag)} className="font-mono text-rose-300" title="exclude">
-              -
-            </button>
-            <span>{tag}</span>
-            <button onClick={() => removeTag(tag)} className="text-rose-300">
-              ×
-            </button>
-          </div>
-        ))}
+      <div
+        className="mb-1 min-h-24 flex-none overflow-y-auto rounded border border-slate-800 bg-slate-900 p-2"
+        style={{ height: `${tagCloudHeight}px` }}
+      >
+        <div className="flex flex-wrap gap-2">
+          {activeImage.tags.map((tag) => (
+            <div key={tag} className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-xs">
+              <button onClick={() => onFilterInclude(tag)} className="font-mono text-green-300" title="include">
+                +
+              </button>
+              <button onClick={() => onFilterExclude(tag)} className="font-mono text-rose-300" title="exclude">
+                -
+              </button>
+              <span>{tag}</span>
+              <button onClick={() => removeTag(tag)} className="text-rose-300">
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
+      <div
+        className="mb-3 h-1 w-full cursor-row-resize rounded bg-cyan-700/0 hover:bg-cyan-500/60"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          dragStartRef.current = { y: e.clientY, h: tagCloudHeight };
+          setResizingTagCloud(true);
+        }}
+      />
 
       <label className="mb-1 text-xs text-slate-400">Add tags (comma separated)</label>
       <input
@@ -79,7 +121,7 @@ export function TagEditorPanel({ activeImage, allTags, onSetTags, onFilterInclud
       </button>
 
       <h3 className="mb-2 text-xs uppercase tracking-wide text-slate-400">Autocomplete</h3>
-      <div className="grid grid-cols-1 gap-1 overflow-y-auto text-xs">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-1 overflow-y-auto text-xs">
         {suggestions.map((tag) => (
           <button
             key={tag}
@@ -91,7 +133,7 @@ export function TagEditorPanel({ activeImage, allTags, onSetTags, onFilterInclud
         ))}
       </div>
 
-      <div className="mt-4 rounded border border-slate-800 bg-slate-900 p-2 text-xs text-slate-300">
+      <div className="mt-4 flex-none rounded border border-slate-800 bg-slate-900 p-2 text-xs text-slate-300">
         <div>{activeImage.baseName}</div>
         <div>
           {activeImage.metadata.width}×{activeImage.metadata.height}
