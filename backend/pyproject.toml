@@ -1,0 +1,23 @@
+[project]
+name = "tageditor-backend"
+version = "0.1.0"
+description = "LoRA dataset tag editor backend"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "pydantic",
+  "pillow",
+  "python-multipart",
+]
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "ruff",
+  "ty",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["app"]
