@@ -350,7 +350,15 @@ export default function App() {
               }}
             />
           </div>
-          <TagStatsPanel stats={stats} />
+          <TagStatsPanel
+            stats={stats}
+            onIncludeTag={(tag) => {
+              void applyIncludeFilter(tag);
+            }}
+            onExcludeTag={(tag) => {
+              void applyExcludeFilter(tag);
+            }}
+          />
         </div>
 
         <TagEditorPanel
