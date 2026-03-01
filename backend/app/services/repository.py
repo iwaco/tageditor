@@ -13,6 +13,7 @@ from app.models.schemas import ImageEntryModel, ImageMetadataModel, TagStatsMode
 from app.services.tags import normalize_tags, parse_tag_text, serialize_tags
 
 SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+IGNORED_TOP_LEVEL_DIRS = {".tageditor"}
 
 
 class RepositoryError(Exception):
@@ -57,6 +58,10 @@ class DatasetRepository:
         return file.name.startswith("._")
 
     @staticmethod
+    def _should_skip_relative_path(relative_file_path: Path) -> bool:
+        return bool(relative_file_path.parts) and relative_file_path.parts[0] in IGNORED_TOP_LEVEL_DIRS
+
+    @staticmethod
     def encode_id(image_id: str) -> str:
         return base64.urlsafe_b64encode(image_id.encode("utf-8")).decode("ascii")
 
@@ -76,8 +81,11 @@ class DatasetRepository:
                 continue
             if self._should_skip_image_file(file):
                 continue
+            relative_file_path = file.relative_to(root)
+            if self._should_skip_relative_path(relative_file_path):
+                continue
 
-            relative_image_path = str(file.relative_to(root)).replace("\\", "/")
+            relative_image_path = str(relative_file_path).replace("\\", "/")
             image_id = self._to_image_id(relative_image_path)
             tag_file = file.with_suffix(".txt")
             relative_tag_path = str(tag_file.relative_to(root)).replace("\\", "/")
