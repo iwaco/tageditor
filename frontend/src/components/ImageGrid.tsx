@@ -7,10 +7,9 @@ interface Props {
   activeId: string | null;
   onClickImage: (imageId: string, index: number, e: MouseEvent<HTMLButtonElement>) => void;
   onToggleSelect: (imageId: string) => void;
-  onOpenDetail: (imageId: string) => void;
 }
 
-export function ImageGrid({ images, selected, activeId, onClickImage, onToggleSelect, onOpenDetail }: Props) {
+export function ImageGrid({ images, selected, activeId, onClickImage, onToggleSelect }: Props) {
   return (
     <div className="h-full overflow-y-auto p-3">
       <div className="grid grid-cols-4 gap-3">
@@ -28,7 +27,6 @@ export function ImageGrid({ images, selected, activeId, onClickImage, onToggleSe
                     : "border-slate-700"
               }`}
               onClick={(e) => onClickImage(item.id, index, e)}
-              onDoubleClick={() => onOpenDetail(item.id)}
             >
               <button
                 className={`absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded border text-xs ${

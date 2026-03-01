@@ -5,7 +5,6 @@ import { CategoryTree } from "./components/CategoryTree";
 import { ImageGrid } from "./components/ImageGrid";
 import { TagEditorPanel } from "./components/TagEditorPanel";
 import { TagStatsPanel } from "./components/TagStatsPanel";
-import { DetailView } from "./components/DetailView";
 
 function normalizeTags(tags: string[]): string[] {
   const out: string[] = [];
@@ -28,7 +27,6 @@ export default function App() {
   const [stats, setStats] = useState<TagStats[]>([]);
   const [includeTags, setIncludeTags] = useState<string[]>([]);
   const [excludeTags, setExcludeTags] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"grid" | "detail">("grid");
   const [message, setMessage] = useState("Ready");
   const [undoStack, setUndoStack] = useState<EditAction[]>([]);
   const [redoStack, setRedoStack] = useState<EditAction[]>([]);
@@ -234,24 +232,18 @@ export default function App() {
       if (isTypingContext || isInteractiveControl) {
         return;
       }
-      if (e.key === "Enter" && viewMode === "grid" && activeImageId) {
-        setViewMode("detail");
-      }
-      if (e.key === "Escape" && viewMode === "detail") {
-        setViewMode("grid");
-      }
-      if (e.key === "ArrowLeft" && viewMode === "grid" && activeImageId) {
+      if (e.key === "ArrowLeft" && activeImageId) {
         const idx = images.findIndex((v) => v.id === activeImageId);
         if (idx > 0) setActiveImageId(images[idx - 1].id);
       }
-      if (e.key === "ArrowRight" && viewMode === "grid" && activeImageId) {
+      if (e.key === "ArrowRight" && activeImageId) {
         const idx = images.findIndex((v) => v.id === activeImageId);
         if (idx + 1 < images.length) setActiveImageId(images[idx + 1].id);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeImage, activeImageId, images, viewMode]);
+  }, [activeImage, activeImageId, images]);
 
   return (
     <div className="h-screen min-w-[1280px] overflow-hidden">
@@ -311,9 +303,6 @@ export default function App() {
           categories={categories}
           current={activeCategory}
           activeImage={activeImage}
-          onOpenDetail={() => {
-            if (activeImageId) setViewMode("detail");
-          }}
           onSelect={async (c) => {
             setActiveCategory(c);
             await reloadImages({ category: c });
@@ -342,12 +331,6 @@ export default function App() {
               activeId={activeImageId}
               onClickImage={onClickImage}
               onToggleSelect={onToggleSelect}
-              onOpenDetail={(id) => {
-                setActiveImageId(id);
-                const target = images.find((v) => v.id === id) ?? null;
-                setActiveImage(target);
-                setViewMode("detail");
-              }}
             />
           </div>
           <TagStatsPanel
@@ -370,23 +353,6 @@ export default function App() {
           onFilterInclude={applyIncludeFilter}
           onFilterExclude={applyExcludeFilter}
         />
-
-        {viewMode === "detail" && activeImage && (
-          <DetailView
-            image={activeImage}
-            index={images.findIndex((v) => v.id === activeImage.id)}
-            total={images.length}
-            onClose={() => setViewMode("grid")}
-            onPrev={() => {
-              const idx = images.findIndex((v) => v.id === activeImage.id);
-              if (idx > 0) setActiveImageId(images[idx - 1].id);
-            }}
-            onNext={() => {
-              const idx = images.findIndex((v) => v.id === activeImage.id);
-              if (idx + 1 < images.length) setActiveImageId(images[idx + 1].id);
-            }}
-          />
-        )}
       </main>
     </div>
   );
