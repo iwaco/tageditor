@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { batchAddTags, batchRemoveTags, fetchTagStats, listImages, openDataset, updateTags } from "./lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { batchAddTags, batchRemoveTags, fetchTagStats, listImages, openDataset } from "./lib/api";
 import type { EditAction, ImageEntry, TagStats } from "./types/models";
 import { CategoryTree } from "./components/CategoryTree";
 import { ImageGrid } from "./components/ImageGrid";
@@ -33,23 +33,26 @@ export default function App() {
   const [undoStack, setUndoStack] = useState<EditAction[]>([]);
   const [redoStack, setRedoStack] = useState<EditAction[]>([]);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
-  const [batchInput, setBatchInput] = useState("");
   const [leftPaneWidth, setLeftPaneWidth] = useState(280);
   const [resizingLeftPane, setResizingLeftPane] = useState(false);
-
-  const saveTimers = useRef<Record<string, number>>({});
-  const imagesRef = useRef<ImageEntry[]>([]);
+  const [tagSearchInput, setTagSearchInput] = useState("");
+  const [tagSearchMode, setTagSearchMode] = useState<"include" | "exclude">("include");
 
   const tagDictionary = useMemo(() => stats.map((s) => s.tag), [stats]);
+  const selectedImages = useMemo(
+    () => images.filter((img) => selected.includes(img.id)),
+    [images, selected],
+  );
+  const commonTags = useMemo(() => {
+    if (!selectedImages.length) return [] as string[];
+    const [head, ...rest] = selectedImages;
+    return head.tags.filter((tag) => rest.every((img) => img.tags.includes(tag)));
+  }, [selectedImages]);
 
   const refreshStats = async () => {
     const data = await fetchTagStats();
     setStats(data.items);
   };
-
-  useEffect(() => {
-    imagesRef.current = images;
-  }, [images]);
 
   useEffect(() => {
     if (!activeImageId) {
@@ -88,59 +91,14 @@ export default function App() {
       page: 1,
       pageSize: 1000,
     });
+    const visibleIdSet = new Set(data.items.map((v) => v.id));
+    setSelected((prev) => prev.filter((id) => visibleIdSet.has(id)));
     setImages(data.items);
     const hasCurrent = !!activeImageId && data.items.some((v) => v.id === activeImageId);
     const nextActiveId = hasCurrent ? activeImageId : (data.items[0]?.id ?? null);
     const nextActiveImage = nextActiveId ? (data.items.find((v) => v.id === nextActiveId) ?? null) : null;
     setActiveImageId(nextActiveId);
     setActiveImage(nextActiveImage);
-  };
-
-  const applyLocalTags = (imageId: string, nextTags: string[], pushHistory: boolean) => {
-    setImages((prev) =>
-      prev.map((item) => {
-        if (item.id !== imageId) return item;
-        if (pushHistory) {
-          setUndoStack((u) => [
-            ...u,
-            {
-              type: "set_tags",
-              imageId,
-              beforeTags: item.tags,
-              afterTags: nextTags,
-              timestamp: Date.now(),
-            },
-          ]);
-          setRedoStack([]);
-        }
-        return { ...item, tags: normalizeTags(nextTags) };
-      }),
-    );
-  };
-
-  const scheduleSave = (imageId: string, nextTags: string[]) => {
-    if (saveTimers.current[imageId]) {
-      window.clearTimeout(saveTimers.current[imageId]);
-    }
-    saveTimers.current[imageId] = window.setTimeout(async () => {
-      const current = imagesRef.current.find((x) => x.id === imageId);
-      if (!current) return;
-      try {
-        const res = await updateTags(imageId, nextTags, current.revision);
-        setImages((prev) => prev.map((it) => (it.id === imageId ? res.item : it)));
-        await refreshStats();
-        setMessage(`Saved: ${imageId}`);
-      } catch (err) {
-        setMessage(`Save failed: ${(err as Error).message}`);
-      }
-    }, 500);
-  };
-
-  const setTagsForActive = (nextTags: string[]) => {
-    if (!activeImage) return;
-    const normalized = normalizeTags(nextTags);
-    applyLocalTags(activeImage.id, normalized, true);
-    scheduleSave(activeImage.id, normalized);
   };
 
   const handleOpenDataset = async () => {
@@ -180,6 +138,12 @@ export default function App() {
     }
   };
 
+  const onToggleSelect = (id: string) => {
+    setActiveImageId(id);
+    setActiveImage(images.find((v) => v.id === id) ?? null);
+    setSelected((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  };
+
   const applyIncludeFilter = async (tag: string) => {
     const include = Array.from(new Set([...includeTags, tag]));
     setIncludeTags(include);
@@ -192,44 +156,69 @@ export default function App() {
     await reloadImages({ exclude });
   };
 
-  const runBatchAdd = async () => {
-    const tags = normalizeTags(batchInput.split(","));
-    if (!tags.length || !selected.length) return;
-    await batchAddTags(selected, tags);
-    await reloadImages();
-    await refreshStats();
-    setMessage(`Batch add updated ${selected.length} images`);
+  const applyTagSearch = async () => {
+    const tag = tagSearchInput.trim();
+    if (!tag) return;
+    if (tagSearchMode === "include") {
+      await applyIncludeFilter(tag);
+    } else {
+      await applyExcludeFilter(tag);
+    }
+    setTagSearchInput("");
   };
 
-  const runBatchRemove = async () => {
-    const tags = normalizeTags(batchInput.split(","));
-    if (!tags.length || !selected.length) return;
-    await batchRemoveTags(selected, tags);
+  const clearTagFilters = async () => {
+    setIncludeTags([]);
+    setExcludeTags([]);
+    await reloadImages({ include: [], exclude: [] });
+  };
+
+  const addTagsToSelected = async (tags: string[]) => {
+    const normalized = normalizeTags(tags);
+    const targetIds = selectedImages.map((v) => v.id);
+    if (!normalized.length || !targetIds.length) return;
+    await batchAddTags(targetIds, normalized);
     await reloadImages();
     await refreshStats();
-    setMessage(`Batch remove updated ${selected.length} images`);
+    setMessage(`Added tags to ${targetIds.length} selected images`);
+  };
+
+  const removeTagFromSelected = async (tag: string) => {
+    const targetIds = selectedImages.map((v) => v.id);
+    if (!tag || !targetIds.length) return;
+    await batchRemoveTags(targetIds, [tag]);
+    await reloadImages();
+    await refreshStats();
+    setMessage(`Removed tag from ${targetIds.length} selected images`);
   };
 
   const undo = () => {
     const action = undoStack[undoStack.length - 1];
     if (!action) return;
-    setUndoStack((s) => s.slice(0, -1));
-    setRedoStack((s) => [...s, action]);
-    applyLocalTags(action.imageId, action.beforeTags, false);
-    scheduleSave(action.imageId, action.beforeTags);
+    void action;
+    setMessage("Undo is currently disabled for shared tag operations");
   };
 
   const redo = () => {
     const action = redoStack[redoStack.length - 1];
     if (!action) return;
-    setRedoStack((s) => s.slice(0, -1));
-    setUndoStack((s) => [...s, action]);
-    applyLocalTags(action.imageId, action.afterTags, false);
-    scheduleSave(action.imageId, action.afterTags);
+    void action;
+    setMessage("Redo is currently disabled for shared tag operations");
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTypingContext =
+        !!target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+      const isInteractiveControl =
+        !!target &&
+        !!target.closest("button, a, [role='button'], [role='link'], [role='menuitem']");
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -240,7 +229,10 @@ export default function App() {
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        if (activeImage) scheduleSave(activeImage.id, activeImage.tags);
+        setMessage("Auto-save via batch operations is active");
+      }
+      if (isTypingContext || isInteractiveControl) {
+        return;
       }
       if (e.key === "Enter" && viewMode === "grid" && activeImageId) {
         setViewMode("detail");
@@ -279,20 +271,36 @@ export default function App() {
         <button onClick={redo} className="rounded bg-slate-800 px-3 py-1 text-sm hover:bg-slate-700">
           Redo
         </button>
-        <div className="mx-2 h-4 w-px bg-slate-700" />
-        <input
-          value={batchInput}
-          onChange={(e) => setBatchInput(e.target.value)}
-          placeholder="batch tags: a, b, c"
-          className="w-[260px] rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        />
-        <button onClick={runBatchAdd} className="rounded bg-emerald-700 px-2 py-1 text-sm hover:bg-emerald-600">
-          Batch Add
-        </button>
-        <button onClick={runBatchRemove} className="rounded bg-rose-700 px-2 py-1 text-sm hover:bg-rose-600">
-          Batch Remove
-        </button>
-        <div className="ml-auto text-xs text-slate-400">{message}</div>
+        <div className="ml-auto flex items-center gap-2">
+          <select
+            value={tagSearchMode}
+            onChange={(e) => setTagSearchMode(e.target.value as "include" | "exclude")}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+            title="Tag search mode"
+          >
+            <option value="include">Include</option>
+            <option value="exclude">Exclude</option>
+          </select>
+          <input
+            value={tagSearchInput}
+            onChange={(e) => setTagSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void applyTagSearch();
+              }
+            }}
+            placeholder="Tag search"
+            className="w-[220px] rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+          />
+          <button onClick={() => void applyTagSearch()} className="rounded bg-cyan-700 px-2 py-1 text-sm hover:bg-cyan-600">
+            Apply
+          </button>
+          <button onClick={() => void clearTagFilters()} className="rounded bg-slate-800 px-2 py-1 text-sm hover:bg-slate-700">
+            Clear
+          </button>
+        </div>
+        <div className="text-xs text-slate-400">{message}</div>
       </header>
 
       <main
@@ -333,6 +341,7 @@ export default function App() {
               selected={selected}
               activeId={activeImageId}
               onClickImage={onClickImage}
+              onToggleSelect={onToggleSelect}
               onOpenDetail={(id) => {
                 setActiveImageId(id);
                 const target = images.find((v) => v.id === id) ?? null;
@@ -345,9 +354,11 @@ export default function App() {
         </div>
 
         <TagEditorPanel
-          activeImage={activeImage}
+          selectedCount={selectedImages.length}
+          commonTags={commonTags}
           allTags={tagDictionary}
-          onSetTags={setTagsForActive}
+          onAddTags={addTagsToSelected}
+          onRemoveTag={removeTagFromSelected}
           onFilterInclude={applyIncludeFilter}
           onFilterExclude={applyExcludeFilter}
         />
