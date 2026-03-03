@@ -9,6 +9,8 @@ interface Props {
   onSelect: (category: string) => void;
 }
 
+const PREVIEW_STATE_KEY = "tageditor.preview.v1";
+
 export function CategoryTree({ categories, current, activeImage, onSelect }: Props) {
   const [previewHeight, setPreviewHeight] = useState(240);
   const [resizingPreview, setResizingPreview] = useState(false);
@@ -22,6 +24,32 @@ export function CategoryTree({ categories, current, activeImage, onSelect }: Pro
     // Keep minimal room for categories list while allowing near full-height preview.
     return Math.max(180, container.clientHeight - 80);
   };
+
+  useEffect(() => {
+    const raw = localStorage.getItem(PREVIEW_STATE_KEY);
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw) as { previewHeight?: number; manualResized?: boolean };
+      if (typeof saved.previewHeight === "number") {
+        setPreviewHeight(saved.previewHeight);
+      }
+      if (typeof saved.manualResized === "boolean") {
+        setManualResized(saved.manualResized);
+      }
+    } catch {
+      // ignore corrupted local state
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      PREVIEW_STATE_KEY,
+      JSON.stringify({
+        previewHeight,
+        manualResized,
+      }),
+    );
+  }, [previewHeight, manualResized]);
 
   useEffect(() => {
     if (!resizingPreview) return;

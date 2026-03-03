@@ -16,6 +16,19 @@ function normalizeTags(tags: string[]): string[] {
   return out;
 }
 
+const UI_STATE_KEY = "tageditor.ui.v1";
+
+interface PersistedUIState {
+  rootPath: string;
+  activeCategory: string;
+  includeTags: string[];
+  excludeTags: string[];
+  selected: string[];
+  activeImageId: string | null;
+  leftPaneWidth: number;
+  tagSearchMode: "include" | "exclude";
+}
+
 export default function App() {
   const [rootPath, setRootPath] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
@@ -35,6 +48,7 @@ export default function App() {
   const [resizingLeftPane, setResizingLeftPane] = useState(false);
   const [tagSearchInput, setTagSearchInput] = useState("");
   const [tagSearchMode, setTagSearchMode] = useState<"include" | "exclude">("include");
+  const [restoring, setRestoring] = useState(true);
 
   const tagDictionary = useMemo(() => stats.map((s) => s.tag), [stats]);
   const selectedImages = useMemo(
@@ -51,6 +65,79 @@ export default function App() {
     const data = await fetchTagStats();
     setStats(data.items);
   };
+
+  useEffect(() => {
+    const restore = async () => {
+      const raw = localStorage.getItem(UI_STATE_KEY);
+      if (!raw) {
+        setRestoring(false);
+        return;
+      }
+
+      try {
+        const state = JSON.parse(raw) as PersistedUIState;
+        setRootPath(state.rootPath ?? "");
+        setLeftPaneWidth(Math.min(560, Math.max(220, state.leftPaneWidth ?? 280)));
+        setTagSearchMode(state.tagSearchMode === "exclude" ? "exclude" : "include");
+
+        if (!state.rootPath) {
+          setRestoring(false);
+          return;
+        }
+
+        const opened = await openDataset(state.rootPath);
+        setCategories(opened.categories);
+        setStats(opened.tagStats);
+        const nextCategory = state.activeCategory || "all";
+        const nextInclude = state.includeTags ?? [];
+        const nextExclude = state.excludeTags ?? [];
+        setActiveCategory(nextCategory);
+        setIncludeTags(nextInclude);
+        setExcludeTags(nextExclude);
+
+        const listed = await listImages({
+          category: nextCategory === "all" ? undefined : nextCategory,
+          hasTag: nextInclude,
+          notTag: nextExclude,
+          page: 1,
+          pageSize: 1000,
+        });
+        setImages(listed.items);
+        const visibleIdSet = new Set(listed.items.map((v) => v.id));
+        const restoredSelected = (state.selected ?? []).filter((id) => visibleIdSet.has(id));
+        setSelected(restoredSelected);
+
+        const requestedActiveId = state.activeImageId;
+        const activeId =
+          requestedActiveId && visibleIdSet.has(requestedActiveId)
+            ? requestedActiveId
+            : (listed.items[0]?.id ?? null);
+        setActiveImageId(activeId);
+        setActiveImage(activeId ? (listed.items.find((v) => v.id === activeId) ?? null) : null);
+        setMessage(`Restored ${listed.items.length} images`);
+      } catch {
+        setMessage("Failed to restore previous session state");
+      } finally {
+        setRestoring(false);
+      }
+    };
+    void restore();
+  }, []);
+
+  useEffect(() => {
+    if (restoring) return;
+    const state: PersistedUIState = {
+      rootPath,
+      activeCategory,
+      includeTags,
+      excludeTags,
+      selected,
+      activeImageId,
+      leftPaneWidth,
+      tagSearchMode,
+    };
+    localStorage.setItem(UI_STATE_KEY, JSON.stringify(state));
+  }, [restoring, rootPath, activeCategory, includeTags, excludeTags, selected, activeImageId, leftPaneWidth, tagSearchMode]);
 
   useEffect(() => {
     if (!activeImageId) {
