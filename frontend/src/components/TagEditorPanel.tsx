@@ -8,6 +8,8 @@ interface Props {
   onRemoveTag: (tag: string) => Promise<void> | void;
   onFilterInclude: (tag: string) => void;
   onFilterExclude: (tag: string) => void;
+  addToFront: boolean;
+  onChangeAddToFront: (value: boolean) => void;
 }
 
 function parseInputTags(input: string): string[] {
@@ -25,6 +27,8 @@ export function TagEditorPanel({
   onRemoveTag,
   onFilterInclude,
   onFilterExclude,
+  addToFront,
+  onChangeAddToFront,
 }: Props) {
   const [input, setInput] = useState("");
   const [tagCloudHeight, setTagCloudHeight] = useState(224);
@@ -121,6 +125,15 @@ export function TagEditorPanel({
         className="mb-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm outline-none focus:border-cyan-500"
         placeholder="1girl, blue eyes"
       />
+      <label className="mb-2 flex items-center gap-2 text-xs text-slate-400">
+        <input
+          type="checkbox"
+          checked={addToFront}
+          onChange={(e) => onChangeAddToFront(e.target.checked)}
+          className="accent-cyan-600"
+        />
+        Add to front
+      </label>
       <button onClick={() => addTags(input)} className="mb-4 rounded bg-cyan-700 px-2 py-1 text-sm hover:bg-cyan-600">
         Add
       </button>

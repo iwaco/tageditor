@@ -18,6 +18,9 @@ export interface ImageEntry {
   revision: number;
 }
 
+/** Where newly added tags are inserted into an existing tag list. */
+export type TagInsertPosition = "end" | "start";
+
 export interface TagStats {
   tag: string;
   count: number;
