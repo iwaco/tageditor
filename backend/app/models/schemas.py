@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+# Where newly added tags are inserted into an existing tag list.
+TagInsertPosition = Literal["end", "start"]
 
 
 class ImageMetadataModel(BaseModel):
@@ -66,6 +71,10 @@ class UpdateTagsResponse(BaseModel):
 class BatchTagsRequest(BaseModel):
     imageIds: list[str]
     tags: list[str]
+
+
+class BatchAddTagsRequest(BatchTagsRequest):
+    position: TagInsertPosition = "end"
 
 
 class BatchTagsResponse(BaseModel):
