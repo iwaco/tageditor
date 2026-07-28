@@ -90,9 +90,14 @@ Request:
 ```json
 {
   "imageIds": ["..."],
-  "tags": ["..."]
+  "tags": ["..."],
+  "position": "end"
 }
 ```
+
+`position` is optional and defaults to `"end"` (append). With `"start"` the tags are
+inserted at the front of the list; a tag the image already carries is moved to the front
+rather than left in place.
 
 ## 6. Batch Remove Tags
 

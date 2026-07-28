@@ -39,5 +39,6 @@ uv run ty check
 3. Enter dataset root path in the top input and click `Open`.
 4. Click thumbnails to select, double-click or press `Enter` for detail view.
 5. Edit tags in right panel (`Add`, `x` remove); auto-save runs with debounce.
+   Check `Add to front` to insert tags at the head of the list (for trigger words).
 6. Use `Batch Add` / `Batch Remove` after selecting multiple images.
 7. Use `Esc` to leave detail view, `Ctrl+Z` / `Ctrl+Shift+Z` for undo/redo.
