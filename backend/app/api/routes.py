@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 
 from app.models.schemas import (
+    BatchAddTagsRequest,
     BatchTagsRequest,
     BatchTagsResponse,
     ImageDetailResponse,
@@ -87,9 +88,9 @@ def update_image_tags(image_id: str, req: UpdateTagsRequest) -> UpdateTagsRespon
 
 
 @router.post("/images/batch/tags:add", response_model=BatchTagsResponse)
-def batch_add_tags(req: BatchTagsRequest) -> BatchTagsResponse:
+def batch_add_tags(req: BatchAddTagsRequest) -> BatchTagsResponse:
     try:
-        updated = repo.batch_add_tags(req.imageIds, req.tags)
+        updated = repo.batch_add_tags(req.imageIds, req.tags, req.position)
     except RepositoryError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return BatchTagsResponse(updated=updated)

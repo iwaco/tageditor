@@ -1,4 +1,4 @@
-import type { ImageEntry, OpenDatasetResponse, TagStats } from "../types/models";
+import type { ImageEntry, OpenDatasetResponse, TagInsertPosition, TagStats } from "../types/models";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -48,10 +48,10 @@ export async function updateTags(imageId: string, tags: string[], revision: numb
   });
 }
 
-export async function batchAddTags(imageIds: string[], tags: string[]) {
+export async function batchAddTags(imageIds: string[], tags: string[], position: TagInsertPosition = "end") {
   return request<{ updated: number }>("/api/images/batch/tags:add", {
     method: "POST",
-    body: JSON.stringify({ imageIds, tags }),
+    body: JSON.stringify({ imageIds, tags, position }),
   });
 }
 

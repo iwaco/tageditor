@@ -27,6 +27,7 @@ interface PersistedUIState {
   activeImageId: string | null;
   leftPaneWidth: number;
   tagSearchMode: "include" | "exclude";
+  addToFront: boolean;
 }
 
 export default function App() {
@@ -48,6 +49,7 @@ export default function App() {
   const [resizingLeftPane, setResizingLeftPane] = useState(false);
   const [tagSearchInput, setTagSearchInput] = useState("");
   const [tagSearchMode, setTagSearchMode] = useState<"include" | "exclude">("include");
+  const [addToFront, setAddToFront] = useState(false);
   const [restoring, setRestoring] = useState(true);
 
   const tagDictionary = useMemo(() => stats.map((s) => s.tag), [stats]);
@@ -79,6 +81,7 @@ export default function App() {
         setRootPath(state.rootPath ?? "");
         setLeftPaneWidth(Math.min(560, Math.max(220, state.leftPaneWidth ?? 280)));
         setTagSearchMode(state.tagSearchMode === "exclude" ? "exclude" : "include");
+        setAddToFront(state.addToFront === true);
 
         if (!state.rootPath) {
           setRestoring(false);
@@ -135,9 +138,10 @@ export default function App() {
       activeImageId,
       leftPaneWidth,
       tagSearchMode,
+      addToFront,
     };
     localStorage.setItem(UI_STATE_KEY, JSON.stringify(state));
-  }, [restoring, rootPath, activeCategory, includeTags, excludeTags, selected, activeImageId, leftPaneWidth, tagSearchMode]);
+  }, [restoring, rootPath, activeCategory, includeTags, excludeTags, selected, activeImageId, leftPaneWidth, tagSearchMode, addToFront]);
 
   useEffect(() => {
     if (!activeImageId) {
@@ -262,10 +266,12 @@ export default function App() {
     const normalized = normalizeTags(tags);
     const targetIds = selectedImages.map((v) => v.id);
     if (!normalized.length || !targetIds.length) return;
-    await batchAddTags(targetIds, normalized);
+    await batchAddTags(targetIds, normalized, addToFront ? "start" : "end");
     await reloadImages();
     await refreshStats();
-    setMessage(`Added tags to ${targetIds.length} selected images`);
+    setMessage(
+      `Added tags to the ${addToFront ? "front" : "end"} of ${targetIds.length} selected images`,
+    );
   };
 
   const removeTagFromSelected = async (tag: string) => {
@@ -437,6 +443,8 @@ export default function App() {
           allTags={tagDictionary}
           onAddTags={addTagsToSelected}
           onRemoveTag={removeTagFromSelected}
+          addToFront={addToFront}
+          onChangeAddToFront={setAddToFront}
           onFilterInclude={applyIncludeFilter}
           onFilterExclude={applyExcludeFilter}
         />

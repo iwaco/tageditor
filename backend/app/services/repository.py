@@ -9,7 +9,12 @@ from pathlib import Path
 from PIL import Image
 from PIL import UnidentifiedImageError
 
-from app.models.schemas import ImageEntryModel, ImageMetadataModel, TagStatsModel
+from app.models.schemas import (
+    ImageEntryModel,
+    ImageMetadataModel,
+    TagInsertPosition,
+    TagStatsModel,
+)
 from app.services.tags import normalize_tags, parse_tag_text, serialize_tags
 
 SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -194,7 +199,12 @@ class DatasetRepository:
             state.entries_by_id[image_id] = entry
             return entry
 
-    def batch_add_tags(self, image_ids: list[str], tags: list[str]) -> int:
+    def batch_add_tags(
+        self,
+        image_ids: list[str],
+        tags: list[str],
+        position: TagInsertPosition = "end",
+    ) -> int:
         state = self._ensure_state()
         add_tags = normalize_tags(tags)
         updated = 0
@@ -204,7 +214,10 @@ class DatasetRepository:
                 entry = state.entries_by_id.get(image_id)
                 if not entry:
                     continue
-                merged = normalize_tags(entry.tags + add_tags)
+                # normalize_tags keeps the first occurrence, so putting add_tags first
+                # also moves already-present tags to the front.
+                ordered = add_tags + entry.tags if position == "start" else entry.tags + add_tags
+                merged = normalize_tags(ordered)
                 if merged == entry.tags:
                     continue
                 self._write_tag_file(state.root_path / entry.tagFilePath, merged)
