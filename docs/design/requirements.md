@@ -16,7 +16,7 @@ LoRA（Low-Rank Adaptation）トレーニング用データセットの画像タ
 | レイヤー | 技術 | 備考 |
 |---------|------|------|
 | フロントエンド | React + TypeScript | SPA構成 |
-| UIライブラリ | shadcn/ui + Tailwind CSS | |
+| UIライブラリ | Astryx（`@astryxdesign/core` + `@astryxdesign/theme-neutral`） | 当初は shadcn/ui + Tailwind CSS を想定していた |
 | バックエンド | Node.js / Go / Python (FastAPI) | ファイルI/O中心のため軽量で可 |
 | 画像配信 | ローカルファイルサーバー | サムネイル生成含む |
 

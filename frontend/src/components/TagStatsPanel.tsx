@@ -1,3 +1,8 @@
+import { IconButton } from "@astryxdesign/core/IconButton";
+import { HStack } from "@astryxdesign/core/Stack";
+import { Table, pixel, proportional, type TableColumn } from "@astryxdesign/core/Table";
+import { Text } from "@astryxdesign/core/Text";
+import { Minus, Plus } from "lucide-react";
 import type { TagStats } from "../types/models";
 
 interface Props {
@@ -6,46 +11,48 @@ interface Props {
   onExcludeTag: (tag: string) => void;
 }
 
+type StatRow = { tag: string; count: number };
+
 export function TagStatsPanel({ stats, onIncludeTag, onExcludeTag }: Props) {
+  const rows: StatRow[] = stats.slice(0, 100).map((s) => ({ tag: s.tag, count: s.count }));
+  const columns: TableColumn<StatRow>[] = [
+    { key: "tag", header: "Tag", width: proportional(3) },
+    { key: "count", header: "Count", width: pixel(72), align: "end" },
+    {
+      key: "filter",
+      header: "Filter",
+      width: pixel(88),
+      align: "end",
+      renderCell: (row) => (
+        <HStack gap={1} justify="end">
+          <IconButton
+            label="Include this tag"
+            tooltip="Include this tag"
+            size="sm"
+            variant="secondary"
+            icon={<Plus size={12} />}
+            onClick={() => onIncludeTag(row.tag)}
+          />
+          <IconButton
+            label="Exclude this tag"
+            tooltip="Exclude this tag"
+            size="sm"
+            variant="secondary"
+            icon={<Minus size={12} />}
+            onClick={() => onExcludeTag(row.tag)}
+          />
+        </HStack>
+      ),
+    },
+  ];
+
   return (
-    <div className="border-t border-slate-800 p-3">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Tag Frequency</h2>
-      <div className="max-h-44 overflow-y-auto text-xs">
-        <table className="w-full table-fixed border-collapse">
-          <thead>
-            <tr className="text-slate-400">
-              <th className="w-3/5 text-left">Tag</th>
-              <th className="w-1/5 text-right">Count</th>
-              <th className="w-1/5 text-right">Filter</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stats.slice(0, 100).map((s) => (
-              <tr key={s.tag} className="border-t border-slate-800">
-                <td className="truncate py-1">{s.tag}</td>
-                <td className="py-1 text-right">{s.count}</td>
-                <td className="py-1">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      className="rounded bg-emerald-700 px-1.5 py-0.5 text-[10px] text-white hover:bg-emerald-600"
-                      onClick={() => onIncludeTag(s.tag)}
-                      title="Include this tag"
-                    >
-                      +
-                    </button>
-                    <button
-                      className="rounded bg-rose-700 px-1.5 py-0.5 text-[10px] text-white hover:bg-rose-600"
-                      onClick={() => onExcludeTag(s.tag)}
-                      title="Exclude this tag"
-                    >
-                      -
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="stats-pane">
+      <Text as="h2" type="label" weight="semibold" className="pane-heading">
+        Tag Frequency
+      </Text>
+      <div className="stats-scroll">
+        <Table data={rows} columns={columns} idKey="tag" density="compact" dividers="rows" textOverflow="truncate" />
       </div>
     </div>
   );

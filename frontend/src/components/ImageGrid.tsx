@@ -1,4 +1,7 @@
 import type { MouseEvent } from "react";
+import { Badge } from "@astryxdesign/core/Badge";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
+import { Text } from "@astryxdesign/core/Text";
 import type { ImageEntry } from "../types/models";
 
 interface Props {
@@ -11,43 +14,32 @@ interface Props {
 
 export function ImageGrid({ images, selected, activeId, onClickImage, onToggleSelect }: Props) {
   return (
-    <div className="h-full overflow-y-auto p-3">
-      <div className="grid grid-cols-4 gap-3">
+    <div className="image-grid-scroll">
+      <div className="image-grid">
         {images.map((item, index) => {
           const isSelected = selected.includes(item.id);
           const isActive = activeId === item.id;
+          const stateClass = isActive ? "is-active" : isSelected ? "is-selected" : "";
           return (
-            <button
-              key={item.id}
-              className={`relative overflow-hidden rounded border text-left ${
-                isActive
-                  ? "border-cyan-400 ring-2 ring-cyan-500"
-                  : isSelected
-                    ? "border-teal-500"
-                    : "border-slate-700"
-              }`}
-              onClick={(e) => onClickImage(item.id, index, e)}
-            >
-              <button
-                className={`absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded border text-xs ${
-                  isSelected
-                    ? "border-cyan-300 bg-cyan-600 text-white"
-                    : "border-slate-500 bg-slate-900/80 text-slate-300"
-                }`}
-                title={isSelected ? "Deselect image" : "Select image"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleSelect(item.id);
-                }}
-              >
-                {isSelected ? "✓" : ""}
+            <div key={item.id} className={`image-tile ${stateClass}`}>
+              <button type="button" className="image-tile-button" onClick={(e) => onClickImage(item.id, index, e)}>
+                <img src={item.thumbnailUrl} alt={item.baseName} className="image-tile-thumb" loading="lazy" />
+                <span className="image-tile-caption">
+                  <Text size="sm" maxLines={1}>
+                    {item.baseName}
+                  </Text>
+                  <Badge variant="neutral" label={item.tags.length} />
+                </span>
               </button>
-              <img src={item.thumbnailUrl} alt={item.baseName} className="h-32 w-full object-cover" loading="lazy" />
-              <div className="flex items-center justify-between bg-slate-900 p-2 text-xs">
-                <span className="truncate">{item.baseName}</span>
-                <span className="rounded bg-slate-700 px-1 py-0.5">{item.tags.length}</span>
+              <div className="image-tile-check">
+                <CheckboxInput
+                  label={isSelected ? "Deselect image" : "Select image"}
+                  isLabelHidden
+                  value={isSelected}
+                  onChange={() => onToggleSelect(item.id)}
+                />
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
