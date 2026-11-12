@@ -17,7 +17,7 @@ This design targets only **required** features from `requirements.md`:
 
 ### 2.1 High-level
 
-- Frontend: React + TypeScript + Tailwind + shadcn-style component structure
+- Frontend: React 19 + TypeScript + Astryx (`@astryxdesign/core`, theme `@astryxdesign/theme-neutral`)
 - Backend: FastAPI (Python)
 - Storage: Local filesystem dataset (image files + sidecar `.txt` tag files)
 

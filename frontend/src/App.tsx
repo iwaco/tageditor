@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { HStack } from "@astryxdesign/core/Stack";
+import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { batchAddTags, batchRemoveTags, fetchTagStats, listImages, openDataset } from "./lib/api";
 import type { EditAction, ImageEntry, TagStats } from "./types/models";
 import { CategoryTree } from "./components/CategoryTree";
@@ -190,7 +196,7 @@ export default function App() {
     setActiveImage(nextActiveImage);
   };
 
-  const onClickImage = (id: string, index: number, e: React.MouseEvent<HTMLButtonElement>) => {
+  const onClickImage = (id: string, index: number, e: ReactMouseEvent<HTMLButtonElement>) => {
     setActiveImageId(id);
     setActiveImage(images[index] ?? null);
     if (e.shiftKey && lastSelectedIndex !== null) {
@@ -318,59 +324,53 @@ export default function App() {
   }, [activeImage, activeImageId, images]);
 
   return (
-    <div className="h-screen min-w-[1280px] overflow-hidden">
-      <header className="flex items-center gap-2 border-b border-slate-800 bg-slate-900 p-2">
-        <div className="max-w-[420px] truncate text-sm text-slate-300" title={rootPath}>
+    <div className="app-shell">
+      <HStack as="header" className="app-header" gap={2} align="center" padding={2}>
+        <Text size="sm" color="secondary" maxLines={1} hasTruncateTooltip className="app-root-path">
           {rootPath || "No dataset opened"}
-        </div>
-        <button onClick={undo} className="rounded bg-slate-800 px-3 py-1 text-sm hover:bg-slate-700">
-          Undo
-        </button>
-        <button onClick={redo} className="rounded bg-slate-800 px-3 py-1 text-sm hover:bg-slate-700">
-          Redo
-        </button>
-        <div className="ml-auto flex items-center gap-2">
-          <select
+        </Text>
+        <Button label="Undo" variant="secondary" size="sm" onClick={undo} />
+        <Button label="Redo" variant="secondary" size="sm" onClick={redo} />
+        <HStack gap={2} align="center" className="app-header-search">
+          <SegmentedControl
+            label="Tag search mode"
+            size="sm"
             value={tagSearchMode}
-            onChange={(e) => setTagSearchMode(e.target.value as "include" | "exclude")}
-            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-            title="Tag search mode"
+            onChange={(v) => setTagSearchMode(v === "exclude" ? "exclude" : "include")}
           >
-            <option value="include">Include</option>
-            <option value="exclude">Exclude</option>
-          </select>
-          <input
+            <SegmentedControlItem value="include" label="Include" />
+            <SegmentedControlItem value="exclude" label="Exclude" />
+          </SegmentedControl>
+          <TextInput
+            label="Tag search"
+            isLabelHidden
+            size="sm"
+            width={220}
             value={tagSearchInput}
-            onChange={(e) => setTagSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void applyTagSearch();
-              }
-            }}
+            onChange={setTagSearchInput}
+            onEnter={() => void applyTagSearch()}
             placeholder="Tag search"
-            className="w-[220px] rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
           />
-          <button onClick={() => void applyTagSearch()} className="rounded bg-cyan-700 px-2 py-1 text-sm hover:bg-cyan-600">
-            Apply
-          </button>
-          <button onClick={() => void clearTagFilters()} className="rounded bg-slate-800 px-2 py-1 text-sm hover:bg-slate-700">
-            Clear
-          </button>
-        </div>
-        <div className="text-xs text-slate-400">{message}</div>
-      </header>
+          <Button label="Apply" variant="primary" size="sm" onClick={() => void applyTagSearch()} />
+          <Button label="Clear" variant="secondary" size="sm" onClick={() => void clearTagFilters()} />
+        </HStack>
+        <Text size="sm" color="secondary">
+          {message}
+        </Text>
+      </HStack>
 
       {openError ? (
-        <div role="alert" className="border-b border-red-800 bg-red-950 px-3 py-2 text-sm text-red-200">
-          Cannot open dataset: {openError}
-        </div>
+        <Banner
+          role="alert"
+          status="error"
+          container="section"
+          title="Cannot open dataset"
+          description={openError}
+          className="app-banner"
+        />
       ) : null}
 
-      <main
-        className="relative grid h-[calc(100vh-44px)]"
-        style={{ gridTemplateColumns: `${leftPaneWidth}px 1fr 360px` }}
-      >
+      <main className="app-main" style={{ gridTemplateColumns: `${leftPaneWidth}px 1fr 360px` }}>
         <CategoryTree
           categories={categories}
           current={activeCategory}
@@ -382,7 +382,7 @@ export default function App() {
         />
 
         <div
-          className="absolute bottom-0 top-0 z-10 w-1 cursor-col-resize bg-cyan-700/0 hover:bg-cyan-500/60"
+          className="resize-handle resize-handle-col"
           style={{ left: `${leftPaneWidth - 1}px` }}
           onMouseDown={(e) => {
             e.preventDefault();
@@ -390,13 +390,15 @@ export default function App() {
           }}
         />
 
-        <div className="flex min-h-0 flex-col">
-          <div className="border-b border-slate-800 p-2 text-xs text-slate-400">
-            images: {images.length} | selected: {selected.length}
-            {includeTags.length ? ` | include: ${includeTags.join(", ")}` : ""}
-            {excludeTags.length ? ` | exclude: ${excludeTags.join(", ")}` : ""}
+        <div className="center-pane">
+          <div className="pane-status">
+            <Text size="sm" color="secondary">
+              images: {images.length} | selected: {selected.length}
+              {includeTags.length ? ` | include: ${includeTags.join(", ")}` : ""}
+              {excludeTags.length ? ` | exclude: ${excludeTags.join(", ")}` : ""}
+            </Text>
           </div>
-          <div className="min-h-0 flex-1">
+          <div className="center-pane-grid">
             <ImageGrid
               images={images}
               selected={selected}

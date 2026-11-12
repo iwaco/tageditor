@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState, useMemo } from "react";
+import { Button } from "@astryxdesign/core/Button";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
+import { IconButton } from "@astryxdesign/core/IconButton";
+import { List, ListItem } from "@astryxdesign/core/List";
+import { HStack, VStack } from "@astryxdesign/core/Stack";
+import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { Token } from "@astryxdesign/core/Token";
+import { Minus, Plus } from "lucide-react";
 
 interface Props {
   selectedCount: number;
@@ -65,8 +74,10 @@ export function TagEditorPanel({
 
   if (!selectedCount) {
     return (
-      <div className="flex h-full min-h-0 flex-col border-l border-slate-800 p-3 text-sm text-slate-400">
-        No image selected
+      <div className="side-pane side-pane-right">
+        <Text size="sm" color="secondary">
+          No image selected
+        </Text>
       </div>
     );
   }
@@ -79,32 +90,40 @@ export function TagEditorPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-l border-slate-800 p-3">
-      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-300">Tag Cloud (Common)</h2>
-      <div className="mb-2 text-xs text-slate-400">Selected: {selectedCount} images</div>
-      <div
-        className="mb-1 min-h-24 flex-none overflow-y-auto rounded border border-slate-800 bg-slate-900 p-2"
-        style={{ height: `${tagCloudHeight}px` }}
-      >
-        <div className="flex flex-wrap gap-2">
+    <div className="side-pane side-pane-right">
+      <Text as="h2" type="label" weight="semibold" className="pane-heading">
+        Tag Cloud (Common)
+      </Text>
+      <Text size="sm" color="secondary" className="pane-subheading">
+        Selected: {selectedCount} images
+      </Text>
+      <div className="tag-cloud" style={{ height: `${tagCloudHeight}px` }}>
+        <HStack gap={1.5} wrap="wrap">
           {commonTags.map((tag) => (
-            <div key={tag} className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-xs">
-              <button onClick={() => onFilterInclude(tag)} className="font-mono text-green-300" title="include">
-                +
-              </button>
-              <button onClick={() => onFilterExclude(tag)} className="font-mono text-rose-300" title="exclude">
-                -
-              </button>
-              <span>{tag}</span>
-              <button onClick={() => onRemoveTag(tag)} className="text-rose-300">
-                ×
-              </button>
-            </div>
+            <span key={tag} className="tag-chip">
+              <IconButton
+                label={`Include ${tag}`}
+                tooltip="include"
+                size="sm"
+                variant="ghost"
+                icon={<Plus size={12} />}
+                onClick={() => onFilterInclude(tag)}
+              />
+              <IconButton
+                label={`Exclude ${tag}`}
+                tooltip="exclude"
+                size="sm"
+                variant="ghost"
+                icon={<Minus size={12} />}
+                onClick={() => onFilterExclude(tag)}
+              />
+              <Token label={tag} size="sm" onRemove={() => onRemoveTag(tag)} />
+            </span>
           ))}
-        </div>
+        </HStack>
       </div>
       <div
-        className="mb-3 h-1 w-full cursor-row-resize rounded bg-cyan-700/0 hover:bg-cyan-500/60"
+        className="resize-handle resize-handle-row tag-cloud-handle"
         onMouseDown={(e) => {
           e.preventDefault();
           dragStartRef.current = { y: e.clientY, h: tagCloudHeight };
@@ -112,43 +131,28 @@ export function TagEditorPanel({
         }}
       />
 
-      <label className="mb-1 text-xs text-slate-400">Add tags (comma separated)</label>
-      <input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            addTags(input);
-          }
-        }}
-        className="mb-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm outline-none focus:border-cyan-500"
-        placeholder="1girl, blue eyes"
-      />
-      <label className="mb-2 flex items-center gap-2 text-xs text-slate-400">
-        <input
-          type="checkbox"
-          checked={addToFront}
-          onChange={(e) => onChangeAddToFront(e.target.checked)}
-          className="accent-cyan-600"
+      <VStack gap={2} paddingBlockEnd={4}>
+        <TextInput
+          label="Add tags (comma separated)"
+          size="sm"
+          value={input}
+          onChange={setInput}
+          onEnter={() => addTags(input)}
+          placeholder="1girl, blue eyes"
         />
-        Add to front
-      </label>
-      <button onClick={() => addTags(input)} className="mb-4 rounded bg-cyan-700 px-2 py-1 text-sm hover:bg-cyan-600">
-        Add
-      </button>
+        <CheckboxInput label="Add to front" size="sm" value={addToFront} onChange={onChangeAddToFront} />
+        <Button label="Add" variant="primary" size="sm" onClick={() => addTags(input)} />
+      </VStack>
 
-      <h3 className="mb-2 text-xs uppercase tracking-wide text-slate-400">Autocomplete</h3>
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-1 overflow-y-auto text-xs">
-        {suggestions.map((tag) => (
-          <button
-            key={tag}
-            onClick={() => addTags(tag)}
-            className="rounded bg-slate-800 px-2 py-1 text-left hover:bg-slate-700"
-          >
-            {tag}
-          </button>
-        ))}
+      <Text as="h3" type="label" weight="semibold" color="secondary" className="pane-heading">
+        Autocomplete
+      </Text>
+      <div className="scroll-area">
+        <List density="compact" aria-label="Autocomplete">
+          {suggestions.map((tag) => (
+            <ListItem key={tag} itemKey={tag} label={tag} onClick={() => addTags(tag)} />
+          ))}
+        </List>
       </div>
     </div>
   );

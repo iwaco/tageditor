@@ -1,4 +1,10 @@
 import { useEffect, useState } from "react";
+import { Button } from "@astryxdesign/core/Button";
+import { IconButton } from "@astryxdesign/core/IconButton";
+import { HStack } from "@astryxdesign/core/Stack";
+import { Text } from "@astryxdesign/core/Text";
+import { TreeList, type TreeListItemData } from "@astryxdesign/core/TreeList";
+import { ZoomIn, ZoomOut } from "lucide-react";
 
 import type { ImageEntry } from "../types/models";
 
@@ -94,52 +100,58 @@ export function CategoryTree({ categories, current, activeImage, onSelect }: Pro
     setPanY(0);
   }, [activeImage?.id]);
 
+  const categoryItems: TreeListItemData[] = ["all", ...categories].map((c) => ({
+    id: c,
+    label: c === "all" ? "All" : c,
+    isSelected: current === c,
+    onClick: () => onSelect(c),
+  }));
+
   return (
-    <div id="category-pane" className="flex h-full min-h-0 flex-col border-r border-slate-800 p-3">
-      <div className="mb-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Preview</div>
-          <div className="flex items-center gap-1">
-            <button
-              className="rounded bg-slate-800 px-2 py-1 text-[10px] hover:bg-slate-700"
+    <div id="category-pane" className="side-pane side-pane-left">
+      <div className="preview-section">
+        <HStack justify="between" align="center" gap={2} paddingBlockEnd={2}>
+          <Text size="sm" weight="semibold" color="secondary">
+            Preview
+          </Text>
+          <HStack gap={1} align="center">
+            <IconButton
+              label="Zoom out"
+              tooltip="Zoom out"
+              size="sm"
+              variant="secondary"
+              icon={<ZoomOut size={14} />}
+              isDisabled={!activeImage}
               onClick={() => setPreviewZoom((v) => Math.max(0.25, v - 0.1))}
-              title="Zoom out"
-              disabled={!activeImage}
-            >
-              -
-            </button>
-            <button
-              className="rounded bg-slate-800 px-2 py-1 text-[10px] hover:bg-slate-700"
+            />
+            <Button
+              label="100%"
+              tooltip="Reset zoom"
+              size="sm"
+              variant="secondary"
+              isDisabled={!activeImage}
               onClick={() => {
                 setPreviewZoom(1);
                 setPanX(0);
                 setPanY(0);
               }}
-              title="Reset zoom"
-              disabled={!activeImage}
-            >
-              100%
-            </button>
-            <button
-              className="rounded bg-slate-800 px-2 py-1 text-[10px] hover:bg-slate-700"
+            />
+            <IconButton
+              label="Zoom in"
+              tooltip="Zoom in"
+              size="sm"
+              variant="secondary"
+              icon={<ZoomIn size={14} />}
+              isDisabled={!activeImage}
               onClick={() => setPreviewZoom((v) => Math.min(4, v + 0.1))}
-              title="Zoom in"
-              disabled={!activeImage}
-            >
-              +
-            </button>
-          </div>
-        </div>
-        <div
-          className="w-full overflow-hidden rounded border border-slate-700 bg-slate-900"
-          style={{ height: `${previewHeight}px` }}
-        >
+            />
+          </HStack>
+        </HStack>
+        <div className="preview-frame" style={{ height: `${previewHeight}px` }}>
           {activeImage ? (
             <>
               <div
-                className={`flex h-[calc(100%-44px)] items-center justify-center overflow-hidden bg-slate-950 ${
-                  draggingPreview ? "cursor-grabbing" : "cursor-grab"
-                }`}
+                className={`preview-canvas ${draggingPreview ? "is-grabbing" : ""}`}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   setDraggingPreview(true);
@@ -155,7 +167,7 @@ export function CategoryTree({ categories, current, activeImage, onSelect }: Pro
                 <img
                   src={activeImage.imageUrl}
                   alt={activeImage.baseName}
-                  className="max-h-full max-w-full object-contain"
+                  className="preview-image"
                   style={{
                     transform: `translate(${panX}px, ${panY}px) scale(${previewZoom})`,
                     transformOrigin: "center",
@@ -163,17 +175,25 @@ export function CategoryTree({ categories, current, activeImage, onSelect }: Pro
                   draggable={false}
                 />
               </div>
-              <div className="border-t border-slate-700 p-2 text-xs">
-                <div className="truncate">{activeImage.baseName}</div>
-                <div className="text-slate-400">{activeImage.tags.length} tags</div>
+              <div className="preview-caption">
+                <Text size="sm" maxLines={1}>
+                  {activeImage.baseName}
+                </Text>
+                <Text size="sm" color="secondary">
+                  {activeImage.tags.length} tags
+                </Text>
               </div>
             </>
           ) : (
-            <div className="flex h-full items-center justify-center text-xs text-slate-500">No image selected</div>
+            <div className="preview-empty">
+              <Text size="sm" color="secondary">
+                No image selected
+              </Text>
+            </div>
           )}
         </div>
         <div
-          className="mt-1 h-1 w-full cursor-row-resize rounded bg-cyan-700/0 hover:bg-cyan-500/60"
+          className="resize-handle resize-handle-row"
           onMouseDown={(e) => {
             e.preventDefault();
             setManualResized(true);
@@ -182,31 +202,12 @@ export function CategoryTree({ categories, current, activeImage, onSelect }: Pro
         />
       </div>
 
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Categories</h2>
-      <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-        <li>
-          <button
-            onClick={() => onSelect("all")}
-            className={`w-full rounded px-2 py-1 text-left text-sm ${
-              current === "all" ? "bg-cyan-700 text-white" : "hover:bg-slate-800"
-            }`}
-          >
-            All
-          </button>
-        </li>
-        {categories.map((c) => (
-          <li key={c}>
-            <button
-              onClick={() => onSelect(c)}
-              className={`w-full rounded px-2 py-1 text-left text-sm ${
-                current === c ? "bg-cyan-700 text-white" : "hover:bg-slate-800"
-              }`}
-            >
-              {c}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <Text as="h2" type="label" weight="semibold" className="pane-heading">
+        Categories
+      </Text>
+      <div className="scroll-area">
+        <TreeList items={categoryItems} density="compact" variant="noGuides" aria-label="Categories" />
+      </div>
     </div>
   );
 }
