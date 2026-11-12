@@ -18,8 +18,9 @@ function normalizeTags(tags: string[]): string[] {
 
 const UI_STATE_KEY = "tageditor.ui.v1";
 
+// rootPath used to be stored here; old saved values are ignored now that the
+// dataset root comes from the server config.
 interface PersistedUIState {
-  rootPath: string;
   activeCategory: string;
   includeTags: string[];
   excludeTags: string[];
@@ -32,6 +33,7 @@ interface PersistedUIState {
 
 export default function App() {
   const [rootPath, setRootPath] = useState("");
+  const [openError, setOpenError] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [images, setImages] = useState<ImageEntry[]>([]);
@@ -70,28 +72,25 @@ export default function App() {
 
   useEffect(() => {
     const restore = async () => {
-      const raw = localStorage.getItem(UI_STATE_KEY);
-      if (!raw) {
-        setRestoring(false);
-        return;
+      let state: Partial<PersistedUIState> = {};
+      try {
+        const raw = localStorage.getItem(UI_STATE_KEY);
+        if (raw) state = JSON.parse(raw) as Partial<PersistedUIState>;
+      } catch {
+        state = {};
       }
+      setLeftPaneWidth(Math.min(560, Math.max(220, state.leftPaneWidth ?? 280)));
+      setTagSearchMode(state.tagSearchMode === "exclude" ? "exclude" : "include");
+      setAddToFront(state.addToFront === true);
 
       try {
-        const state = JSON.parse(raw) as PersistedUIState;
-        setRootPath(state.rootPath ?? "");
-        setLeftPaneWidth(Math.min(560, Math.max(220, state.leftPaneWidth ?? 280)));
-        setTagSearchMode(state.tagSearchMode === "exclude" ? "exclude" : "include");
-        setAddToFront(state.addToFront === true);
-
-        if (!state.rootPath) {
-          setRestoring(false);
-          return;
-        }
-
-        const opened = await openDataset(state.rootPath);
+        const opened = await openDataset();
+        setRootPath(opened.rootPath);
+        setOpenError(null);
         setCategories(opened.categories);
         setStats(opened.tagStats);
-        const nextCategory = state.activeCategory || "all";
+        const nextCategory =
+          state.activeCategory && opened.categories.includes(state.activeCategory) ? state.activeCategory : "all";
         const nextInclude = state.includeTags ?? [];
         const nextExclude = state.excludeTags ?? [];
         setActiveCategory(nextCategory);
@@ -117,9 +116,11 @@ export default function App() {
             : (listed.items[0]?.id ?? null);
         setActiveImageId(activeId);
         setActiveImage(activeId ? (listed.items.find((v) => v.id === activeId) ?? null) : null);
-        setMessage(`Restored ${listed.items.length} images`);
-      } catch {
-        setMessage("Failed to restore previous session state");
+        setMessage(`Loaded ${listed.items.length} images`);
+      } catch (err) {
+        const reason = (err as Error).message;
+        setOpenError(reason);
+        setMessage("Failed to open dataset");
       } finally {
         setRestoring(false);
       }
@@ -130,7 +131,6 @@ export default function App() {
   useEffect(() => {
     if (restoring) return;
     const state: PersistedUIState = {
-      rootPath,
       activeCategory,
       includeTags,
       excludeTags,
@@ -141,7 +141,7 @@ export default function App() {
       addToFront,
     };
     localStorage.setItem(UI_STATE_KEY, JSON.stringify(state));
-  }, [restoring, rootPath, activeCategory, includeTags, excludeTags, selected, activeImageId, leftPaneWidth, tagSearchMode, addToFront]);
+  }, [restoring, activeCategory, includeTags, excludeTags, selected, activeImageId, leftPaneWidth, tagSearchMode, addToFront]);
 
   useEffect(() => {
     if (!activeImageId) {
@@ -188,27 +188,6 @@ export default function App() {
     const nextActiveImage = nextActiveId ? (data.items.find((v) => v.id === nextActiveId) ?? null) : null;
     setActiveImageId(nextActiveId);
     setActiveImage(nextActiveImage);
-  };
-
-  const handleOpenDataset = async () => {
-    try {
-      const res = await openDataset(rootPath);
-      setCategories(res.categories);
-      setImages(res.images);
-      setStats(res.tagStats);
-      setActiveCategory("all");
-      setIncludeTags([]);
-      setExcludeTags([]);
-      setSelected([]);
-      setUndoStack([]);
-      setRedoStack([]);
-      const first = res.images[0] ?? null;
-      setActiveImageId(first?.id ?? null);
-      setActiveImage(first);
-      setMessage(`Loaded ${res.total} images`);
-    } catch (err) {
-      setMessage((err as Error).message);
-    }
   };
 
   const onClickImage = (id: string, index: number, e: React.MouseEvent<HTMLButtonElement>) => {
@@ -341,15 +320,9 @@ export default function App() {
   return (
     <div className="h-screen min-w-[1280px] overflow-hidden">
       <header className="flex items-center gap-2 border-b border-slate-800 bg-slate-900 p-2">
-        <input
-          value={rootPath}
-          onChange={(e) => setRootPath(e.target.value)}
-          placeholder="Dataset root path"
-          className="w-[420px] rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-        />
-        <button onClick={handleOpenDataset} className="rounded bg-cyan-700 px-3 py-1 text-sm hover:bg-cyan-600">
-          Open
-        </button>
+        <div className="max-w-[420px] truncate text-sm text-slate-300" title={rootPath}>
+          {rootPath || "No dataset opened"}
+        </div>
         <button onClick={undo} className="rounded bg-slate-800 px-3 py-1 text-sm hover:bg-slate-700">
           Undo
         </button>
@@ -387,6 +360,12 @@ export default function App() {
         </div>
         <div className="text-xs text-slate-400">{message}</div>
       </header>
+
+      {openError ? (
+        <div role="alert" className="border-b border-red-800 bg-red-950 px-3 py-2 text-sm text-red-200">
+          Cannot open dataset: {openError}
+        </div>
+      ) : null}
 
       <main
         className="relative grid h-[calc(100vh-44px)]"

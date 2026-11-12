@@ -1,5 +1,16 @@
 import type { ImageEntry, OpenDatasetResponse, TagInsertPosition, TagStats } from "../types/models";
 
+// FastAPI returns errors as {"detail": ...}; show the detail when it is a string.
+function errorMessage(text: string): string {
+  try {
+    const body = JSON.parse(text) as { detail?: unknown };
+    if (typeof body.detail === "string") return body.detail;
+  } catch {
+    // not JSON; fall through to the raw text
+  }
+  return text;
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -7,16 +18,14 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || `request failed: ${res.status}`);
+    throw new Error(errorMessage(text) || `request failed: ${res.status}`);
   }
   return res.json() as Promise<T>;
 }
 
-export async function openDataset(rootPath: string): Promise<OpenDatasetResponse> {
-  return request<OpenDatasetResponse>("/api/dataset/open", {
-    method: "POST",
-    body: JSON.stringify({ rootPath }),
-  });
+// Opens the dataset root configured on the server (TAGEDITOR_CONFIG).
+export async function openDataset(): Promise<OpenDatasetResponse> {
+  return request<OpenDatasetResponse>("/api/dataset/open", { method: "POST" });
 }
 
 export async function listImages(params: {
