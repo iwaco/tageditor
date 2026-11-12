@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
-import { Button } from "@astryxdesign/core/Button";
-import { IconButton } from "@astryxdesign/core/IconButton";
-import { HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { TreeList, type TreeListItemData } from "@astryxdesign/core/TreeList";
-import { ZoomIn, ZoomOut } from "lucide-react";
 
 import type { ImageEntry } from "../types/models";
+import { CategoryList } from "./CategoryList";
+import { PreviewPanel } from "./PreviewPanel";
 
 interface Props {
   categories: string[];
@@ -17,14 +13,11 @@ interface Props {
 
 const PREVIEW_STATE_KEY = "tageditor.preview.v1";
 
+/** Desktop left pane: the preview over the category list, split by a drag handle. */
 export function CategoryTree({ categories, current, activeImage, onSelect }: Props) {
   const [previewHeight, setPreviewHeight] = useState(240);
   const [resizingPreview, setResizingPreview] = useState(false);
   const [manualResized, setManualResized] = useState(false);
-  const [previewZoom, setPreviewZoom] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
-  const [draggingPreview, setDraggingPreview] = useState(false);
 
   const getPreviewMaxHeight = (container: HTMLElement): number => {
     // Keep minimal room for categories list while allowing near full-height preview.
@@ -94,120 +87,23 @@ export function CategoryTree({ categories, current, activeImage, onSelect }: Pro
     return () => observer.disconnect();
   }, [manualResized]);
 
-  useEffect(() => {
-    setPreviewZoom(1);
-    setPanX(0);
-    setPanY(0);
-  }, [activeImage?.id]);
-
-  const categoryItems: TreeListItemData[] = ["all", ...categories].map((c) => ({
-    id: c,
-    label: c === "all" ? "All" : c,
-    isSelected: current === c,
-    onClick: () => onSelect(c),
-  }));
-
   return (
     <div id="category-pane" className="side-pane side-pane-left">
-      <div className="preview-section">
-        <HStack justify="between" align="center" gap={2} paddingBlockEnd={2}>
-          <Text size="sm" weight="semibold" color="secondary">
-            Preview
-          </Text>
-          <HStack gap={1} align="center">
-            <IconButton
-              label="Zoom out"
-              tooltip="Zoom out"
-              size="sm"
-              variant="secondary"
-              icon={<ZoomOut size={14} />}
-              isDisabled={!activeImage}
-              onClick={() => setPreviewZoom((v) => Math.max(0.25, v - 0.1))}
-            />
-            <Button
-              label="100%"
-              tooltip="Reset zoom"
-              size="sm"
-              variant="secondary"
-              isDisabled={!activeImage}
-              onClick={() => {
-                setPreviewZoom(1);
-                setPanX(0);
-                setPanY(0);
-              }}
-            />
-            <IconButton
-              label="Zoom in"
-              tooltip="Zoom in"
-              size="sm"
-              variant="secondary"
-              icon={<ZoomIn size={14} />}
-              isDisabled={!activeImage}
-              onClick={() => setPreviewZoom((v) => Math.min(4, v + 0.1))}
-            />
-          </HStack>
-        </HStack>
-        <div className="preview-frame" style={{ height: `${previewHeight}px` }}>
-          {activeImage ? (
-            <>
-              <div
-                className={`preview-canvas ${draggingPreview ? "is-grabbing" : ""}`}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setDraggingPreview(true);
-                }}
-                onMouseUp={() => setDraggingPreview(false)}
-                onMouseLeave={() => setDraggingPreview(false)}
-                onMouseMove={(e) => {
-                  if (!draggingPreview) return;
-                  setPanX((v) => v + e.movementX);
-                  setPanY((v) => v + e.movementY);
-                }}
-              >
-                <img
-                  src={activeImage.imageUrl}
-                  alt={activeImage.baseName}
-                  className="preview-image"
-                  style={{
-                    transform: `translate(${panX}px, ${panY}px) scale(${previewZoom})`,
-                    transformOrigin: "center",
-                  }}
-                  draggable={false}
-                />
-              </div>
-              <div className="preview-caption">
-                <Text size="sm" maxLines={1}>
-                  {activeImage.baseName}
-                </Text>
-                <Text size="sm" color="secondary">
-                  {activeImage.tags.length} tags
-                </Text>
-              </div>
-            </>
-          ) : (
-            <div className="preview-empty">
-              <Text size="sm" color="secondary">
-                No image selected
-              </Text>
-            </div>
-          )}
-        </div>
-        <div
-          className="resize-handle resize-handle-row"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setManualResized(true);
-            setResizingPreview(true);
-          }}
-        />
-      </div>
-
-      <Text as="h2" type="label" weight="semibold" className="pane-heading">
-        Categories
-      </Text>
-      <div className="scroll-area">
-        <TreeList items={categoryItems} density="compact" variant="noGuides" aria-label="Categories" />
-      </div>
+      <PreviewPanel
+        activeImage={activeImage}
+        height={previewHeight}
+        footer={
+          <div
+            className="resize-handle resize-handle-row"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setManualResized(true);
+              setResizingPreview(true);
+            }}
+          />
+        }
+      />
+      <CategoryList categories={categories} current={current} onSelect={onSelect} />
     </div>
   );
 }

@@ -57,3 +57,12 @@ uv run ty check
    Check `Add to front` to insert tags at the head of the list (for trigger words).
 6. Use `Batch Add` / `Batch Remove` after selecting multiple images.
 7. Use `Esc` to leave detail view, `Ctrl+Z` / `Ctrl+Shift+Z` for undo/redo.
+
+### Narrow screens (phones)
+
+Below 1024px wide the panes become one column with a tab bar at the bottom:
+`Images` (grid), `Preview`, `Tags` (tag editor) and `Filter` (tag search, categories, tag frequency).
+
+- Tap an image to select it; tap it again to open it in `Preview`.
+- Use the checkboxes to select several images for `Batch Add` / `Batch Remove`.
+- In `Preview`, the arrow buttons step through images and a finger drag pans the zoomed image.

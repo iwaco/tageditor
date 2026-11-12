@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
-import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { Badge } from "@astryxdesign/core/Badge";
 import { HStack } from "@astryxdesign/core/Stack";
+import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
 import { batchAddTags, batchRemoveTags, fetchTagStats, listImages, openDataset } from "./lib/api";
 import type { EditAction, ImageEntry, TagStats } from "./types/models";
+import { useCompactLayout } from "./lib/useCompactLayout";
+import { CategoryList } from "./components/CategoryList";
 import { CategoryTree } from "./components/CategoryTree";
 import { ImageGrid } from "./components/ImageGrid";
+import { PreviewPanel } from "./components/PreviewPanel";
 import { TagEditorPanel } from "./components/TagEditorPanel";
+import { TagSearchBar } from "./components/TagSearchBar";
 import { TagStatsPanel } from "./components/TagStatsPanel";
 
 function normalizeTags(tags: string[]): string[] {
@@ -23,6 +27,9 @@ function normalizeTags(tags: string[]): string[] {
 }
 
 const UI_STATE_KEY = "tageditor.ui.v1";
+
+/** Panels of the compact (phone) layout, switched with the bottom tab bar. */
+type CompactTab = "images" | "preview" | "tags" | "filter";
 
 // rootPath used to be stored here; old saved values are ignored now that the
 // dataset root comes from the server config.
@@ -59,6 +66,8 @@ export default function App() {
   const [tagSearchMode, setTagSearchMode] = useState<"include" | "exclude">("include");
   const [addToFront, setAddToFront] = useState(false);
   const [restoring, setRestoring] = useState(true);
+  const isCompact = useCompactLayout();
+  const [compactTab, setCompactTab] = useState<CompactTab>("images");
 
   const tagDictionary = useMemo(() => stats.map((s) => s.tag), [stats]);
   const selectedImages = useMemo(
@@ -197,6 +206,12 @@ export default function App() {
   };
 
   const onClickImage = (id: string, index: number, e: ReactMouseEvent<HTMLButtonElement>) => {
+    // On a phone there is no double-click or Enter: tapping the image that is
+    // already active opens it in the preview tab.
+    const isPlainClick = !e.shiftKey && !e.ctrlKey && !e.metaKey;
+    if (isCompact && isPlainClick && id === activeImageId) {
+      setCompactTab("preview");
+    }
     setActiveImageId(id);
     setActiveImage(images[index] ?? null);
     if (e.shiftKey && lastSelectedIndex !== null) {
@@ -216,6 +231,13 @@ export default function App() {
     setActiveImageId(id);
     setActiveImage(images.find((v) => v.id === id) ?? null);
     setSelected((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  };
+
+  // Stand-ins for the arrow keys in the compact preview.
+  const stepActiveImage = (delta: number) => {
+    const idx = images.findIndex((v) => v.id === activeImageId);
+    const next = images[idx + delta];
+    if (idx >= 0 && next) setActiveImageId(next.id);
   };
 
   const applyIncludeFilter = async (tag: string) => {
@@ -323,38 +345,140 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [activeImage, activeImageId, images]);
 
+  const paneStatus = (
+    <div className="pane-status">
+      <Text size="sm" color="secondary">
+        images: {images.length} | selected: {selected.length}
+        {includeTags.length ? ` | include: ${includeTags.join(", ")}` : ""}
+        {excludeTags.length ? ` | exclude: ${excludeTags.join(", ")}` : ""}
+      </Text>
+    </div>
+  );
+
+  const selectCategory = async (c: string) => {
+    setActiveCategory(c);
+    await reloadImages({ category: c });
+  };
+
+  // Phone layout: one panel at a time, picked from a bottom tab bar. Every
+  // panel stays mounted (only hidden) so typed input and scroll positions
+  // survive switching tabs.
+  const renderCompactMain = () => (
+    <>
+      <main className="compact-main">
+        <section id="compact-panel-images" className="compact-panel" hidden={compactTab !== "images"}>
+          {paneStatus}
+          <div className="center-pane-grid">
+            <ImageGrid
+              images={images}
+              selected={selected}
+              activeId={activeImageId}
+              onClickImage={onClickImage}
+              onToggleSelect={onToggleSelect}
+              isTouch
+            />
+          </div>
+        </section>
+        <section id="compact-panel-preview" className="compact-panel compact-panel-padded" hidden={compactTab !== "preview"}>
+          <PreviewPanel
+            activeImage={activeImage}
+            isTouch
+            onPrev={() => stepActiveImage(-1)}
+            onNext={() => stepActiveImage(1)}
+          />
+        </section>
+        <section id="compact-panel-tags" className="compact-panel" hidden={compactTab !== "tags"}>
+          <TagEditorPanel
+            selectedCount={selectedImages.length}
+            commonTags={commonTags}
+            allTags={tagDictionary}
+            onAddTags={addTagsToSelected}
+            onRemoveTag={removeTagFromSelected}
+            addToFront={addToFront}
+            onChangeAddToFront={setAddToFront}
+            onFilterInclude={applyIncludeFilter}
+            onFilterExclude={applyExcludeFilter}
+            isTouch
+          />
+        </section>
+        <section
+          id="compact-panel-filter"
+          className="compact-panel compact-panel-padded compact-panel-scroll"
+          hidden={compactTab !== "filter"}
+        >
+          <TagSearchBar
+            mode={tagSearchMode}
+            onChangeMode={setTagSearchMode}
+            value={tagSearchInput}
+            onChange={setTagSearchInput}
+            onApply={() => void applyTagSearch()}
+            onClear={() => void clearTagFilters()}
+            isTouch
+          />
+          {paneStatus}
+          <div className="compact-categories">
+            <CategoryList
+              categories={categories}
+              current={activeCategory}
+              onSelect={(c) => void selectCategory(c)}
+              isTouch
+            />
+          </div>
+          <TagStatsPanel
+            stats={stats}
+            onIncludeTag={(tag) => {
+              void applyIncludeFilter(tag);
+            }}
+            onExcludeTag={(tag) => {
+              void applyExcludeFilter(tag);
+            }}
+            isTouch
+          />
+        </section>
+      </main>
+      <nav className="compact-tabbar" aria-label="Panels">
+        <TabList
+          role="tablist"
+          aria-label="Panels"
+          value={compactTab}
+          onChange={(v) => setCompactTab(v as CompactTab)}
+          layout="fill"
+          size="lg"
+        >
+          <Tab value="images" label="Images" panelId="compact-panel-images" />
+          <Tab value="preview" label="Preview" panelId="compact-panel-preview" />
+          <Tab
+            value="tags"
+            label="Tags"
+            panelId="compact-panel-tags"
+            endContent={selected.length ? <Badge variant="neutral" label={selected.length} /> : undefined}
+          />
+          <Tab value="filter" label="Filter" panelId="compact-panel-filter" />
+        </TabList>
+      </nav>
+    </>
+  );
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isCompact ? "is-compact" : ""}`}>
       <HStack as="header" className="app-header" gap={2} align="center" padding={2}>
         <Text size="sm" color="secondary" maxLines={1} hasTruncateTooltip className="app-root-path">
           {rootPath || "No dataset opened"}
         </Text>
-        <Button label="Undo" variant="secondary" size="sm" onClick={undo} />
-        <Button label="Redo" variant="secondary" size="sm" onClick={redo} />
-        <HStack gap={2} align="center" className="app-header-search">
-          <SegmentedControl
-            label="Tag search mode"
-            size="sm"
-            value={tagSearchMode}
-            onChange={(v) => setTagSearchMode(v === "exclude" ? "exclude" : "include")}
-          >
-            <SegmentedControlItem value="include" label="Include" />
-            <SegmentedControlItem value="exclude" label="Exclude" />
-          </SegmentedControl>
-          <TextInput
-            label="Tag search"
-            isLabelHidden
-            size="sm"
-            width={220}
+        <Button label="Undo" variant="secondary" size={isCompact ? "md" : "sm"} onClick={undo} />
+        <Button label="Redo" variant="secondary" size={isCompact ? "md" : "sm"} onClick={redo} />
+        {isCompact ? null : (
+          <TagSearchBar
+            className="app-header-search"
+            mode={tagSearchMode}
+            onChangeMode={setTagSearchMode}
             value={tagSearchInput}
             onChange={setTagSearchInput}
-            onEnter={() => void applyTagSearch()}
-            placeholder="Tag search"
+            onApply={() => void applyTagSearch()}
+            onClear={() => void clearTagFilters()}
           />
-          <Button label="Apply" variant="primary" size="sm" onClick={() => void applyTagSearch()} />
-          <Button label="Clear" variant="secondary" size="sm" onClick={() => void clearTagFilters()} />
-        </HStack>
-        <Text size="sm" color="secondary">
+        )}
+        <Text size="sm" color="secondary" maxLines={isCompact ? 1 : undefined} className="app-message">
           {message}
         </Text>
       </HStack>
@@ -370,66 +494,64 @@ export default function App() {
         />
       ) : null}
 
-      <main className="app-main" style={{ gridTemplateColumns: `${leftPaneWidth}px 1fr 360px` }}>
-        <CategoryTree
-          categories={categories}
-          current={activeCategory}
-          activeImage={activeImage}
-          onSelect={async (c) => {
-            setActiveCategory(c);
-            await reloadImages({ category: c });
-          }}
-        />
-
-        <div
-          className="resize-handle resize-handle-col"
-          style={{ left: `${leftPaneWidth - 1}px` }}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setResizingLeftPane(true);
-          }}
-        />
-
-        <div className="center-pane">
-          <div className="pane-status">
-            <Text size="sm" color="secondary">
-              images: {images.length} | selected: {selected.length}
-              {includeTags.length ? ` | include: ${includeTags.join(", ")}` : ""}
-              {excludeTags.length ? ` | exclude: ${excludeTags.join(", ")}` : ""}
-            </Text>
-          </div>
-          <div className="center-pane-grid">
-            <ImageGrid
-              images={images}
-              selected={selected}
-              activeId={activeImageId}
-              onClickImage={onClickImage}
-              onToggleSelect={onToggleSelect}
-            />
-          </div>
-          <TagStatsPanel
-            stats={stats}
-            onIncludeTag={(tag) => {
-              void applyIncludeFilter(tag);
-            }}
-            onExcludeTag={(tag) => {
-              void applyExcludeFilter(tag);
+      {isCompact ? (
+        renderCompactMain()
+      ) : (
+        <main className="app-main" style={{ gridTemplateColumns: `${leftPaneWidth}px 1fr 360px` }}>
+          <CategoryTree
+            categories={categories}
+            current={activeCategory}
+            activeImage={activeImage}
+            onSelect={async (c) => {
+              setActiveCategory(c);
+              await reloadImages({ category: c });
             }}
           />
-        </div>
 
-        <TagEditorPanel
-          selectedCount={selectedImages.length}
-          commonTags={commonTags}
-          allTags={tagDictionary}
-          onAddTags={addTagsToSelected}
-          onRemoveTag={removeTagFromSelected}
-          addToFront={addToFront}
-          onChangeAddToFront={setAddToFront}
-          onFilterInclude={applyIncludeFilter}
-          onFilterExclude={applyExcludeFilter}
-        />
-      </main>
+          <div
+            className="resize-handle resize-handle-col"
+            style={{ left: `${leftPaneWidth - 1}px` }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setResizingLeftPane(true);
+            }}
+          />
+
+          <div className="center-pane">
+            {paneStatus}
+            <div className="center-pane-grid">
+              <ImageGrid
+                images={images}
+                selected={selected}
+                activeId={activeImageId}
+                onClickImage={onClickImage}
+                onToggleSelect={onToggleSelect}
+              />
+            </div>
+            <TagStatsPanel
+              stats={stats}
+              onIncludeTag={(tag) => {
+                void applyIncludeFilter(tag);
+              }}
+              onExcludeTag={(tag) => {
+                void applyExcludeFilter(tag);
+              }}
+            />
+          </div>
+
+          <TagEditorPanel
+            selectedCount={selectedImages.length}
+            commonTags={commonTags}
+            allTags={tagDictionary}
+            onAddTags={addTagsToSelected}
+            onRemoveTag={removeTagFromSelected}
+            addToFront={addToFront}
+            onChangeAddToFront={setAddToFront}
+            onFilterInclude={applyIncludeFilter}
+            onFilterExclude={applyExcludeFilter}
+          />
+        </main>
+      )}
     </div>
   );
 }
