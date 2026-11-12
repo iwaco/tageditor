@@ -34,10 +34,6 @@ class TagStatsModel(BaseModel):
     categories: list[str] = Field(default_factory=list)
 
 
-class OpenDatasetRequest(BaseModel):
-    rootPath: str
-
-
 class OpenDatasetResponse(BaseModel):
     rootPath: str
     categories: list[str]
