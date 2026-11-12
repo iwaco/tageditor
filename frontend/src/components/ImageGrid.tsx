@@ -10,9 +10,11 @@ interface Props {
   activeId: string | null;
   onClickImage: (imageId: string, index: number, e: MouseEvent<HTMLButtonElement>) => void;
   onToggleSelect: (imageId: string) => void;
+  /** Larger checkbox hit area for touch screens. */
+  isTouch?: boolean;
 }
 
-export function ImageGrid({ images, selected, activeId, onClickImage, onToggleSelect }: Props) {
+export function ImageGrid({ images, selected, activeId, onClickImage, onToggleSelect, isTouch = false }: Props) {
   return (
     <div className="image-grid-scroll">
       <div className="image-grid">
@@ -31,11 +33,18 @@ export function ImageGrid({ images, selected, activeId, onClickImage, onToggleSe
                   <Badge variant="neutral" label={item.tags.length} />
                 </span>
               </button>
-              <div className="image-tile-check">
+              {/* The padding around the checkbox is part of the tap target on touch screens. */}
+              <div
+                className="image-tile-check"
+                onClick={(e) => {
+                  if (isTouch && e.target === e.currentTarget) onToggleSelect(item.id);
+                }}
+              >
                 <CheckboxInput
                   label={isSelected ? "Deselect image" : "Select image"}
                   isLabelHidden
                   value={isSelected}
+                  size={isTouch ? "md" : undefined}
                   onChange={() => onToggleSelect(item.id)}
                 />
               </div>

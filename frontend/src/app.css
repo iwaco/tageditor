@@ -15,8 +15,13 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  min-width: 1280px;
+  /* iOS Safari: 100vh ignores the address bar; dvh tracks the visible area. */
+  height: 100dvh;
   overflow: hidden;
+}
+
+.app-shell:not(.is-compact) {
+  min-width: 1280px;
 }
 
 .app-header {
@@ -138,6 +143,8 @@ body {
 
 .preview-canvas {
   display: flex;
+  /* Let a finger drag pan the image instead of scrolling the page. */
+  touch-action: none;
   height: calc(100% - 52px);
   align-items: center;
   justify-content: center;
@@ -148,6 +155,20 @@ body {
 
 .preview-canvas.is-grabbing {
   cursor: grabbing;
+}
+
+/* Preview without a fixed height (compact layout): fill the panel. */
+.preview-section.is-fill {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.preview-section.is-fill .preview-frame {
+  flex: 1;
+  min-height: 0;
 }
 
 .preview-image {
@@ -228,6 +249,15 @@ body {
   padding: var(--spacing-2);
 }
 
+/* The file name truncates; the tag-count badge keeps its full width. */
+.image-tile-caption > :first-child {
+  min-width: 0;
+}
+
+.image-tile-caption > :last-child {
+  flex: none;
+}
+
 .image-tile-check {
   position: absolute;
   top: var(--spacing-2);
@@ -272,4 +302,159 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-element);
   padding-inline-end: var(--spacing-1);
+}
+
+/*
+ * Compact layout (phones, small tablets; see lib/useCompactLayout.ts).
+ * One panel at a time with a bottom tab bar, touch-sized targets, and the
+ * iOS safe areas kept clear.
+ */
+
+.app-shell.is-compact .app-header {
+  flex-wrap: wrap;
+  row-gap: var(--spacing-1);
+  padding-top: max(var(--spacing-2), env(safe-area-inset-top));
+  padding-right: max(var(--spacing-2), env(safe-area-inset-right));
+  padding-left: max(var(--spacing-2), env(safe-area-inset-left));
+}
+
+.app-shell.is-compact .app-root-path {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+
+.app-shell.is-compact .app-message {
+  flex-basis: 100%;
+  min-width: 0;
+}
+
+/* Landscape phones are short: keep the header on one row. */
+@media (orientation: landscape) {
+  .app-shell.is-compact .app-header {
+    flex-wrap: nowrap;
+  }
+
+  .app-shell.is-compact .app-root-path {
+    order: -2;
+  }
+
+  .app-shell.is-compact .app-message {
+    flex: 0 1 auto;
+    max-width: 40%;
+    order: -1;
+  }
+}
+
+/* iOS Safari zooms into inputs whose text is smaller than 16px. */
+.app-shell.is-compact input,
+.app-shell.is-compact textarea {
+  font-size: 16px;
+}
+
+.compact-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-right: env(safe-area-inset-right);
+  padding-left: env(safe-area-inset-left);
+}
+
+.compact-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.compact-panel[hidden] {
+  display: none;
+}
+
+.compact-panel-padded {
+  padding: var(--spacing-3);
+}
+
+/* Filter panel: search, categories and tag frequency scroll as one column. */
+.compact-panel-scroll {
+  gap: var(--spacing-3);
+  overflow-y: auto;
+}
+
+.compact-panel-scroll > * {
+  flex: none;
+}
+
+.compact-panel-scroll .pane-status {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-element);
+}
+
+.compact-categories .scroll-area,
+.compact-panel-scroll .stats-scroll {
+  max-height: none;
+  overflow: visible;
+}
+
+.compact-panel-scroll .stats-pane {
+  padding: var(--spacing-3) 0 0;
+}
+
+.tag-search-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.tag-search-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Tag editor: the whole panel scrolls so it also fits a phone in landscape. */
+.app-shell.is-compact .side-pane-right {
+  overflow-y: auto;
+  border-left: 0;
+}
+
+.app-shell.is-compact .side-pane-right .scroll-area {
+  flex: none;
+  overflow: visible;
+}
+
+.app-shell.is-compact .tag-cloud {
+  max-height: 45dvh;
+  min-height: 64px;
+}
+
+.tag-cloud-gap {
+  height: var(--spacing-3);
+}
+
+/* Image grid: as many columns as fit, two on a phone in portrait. */
+.app-shell.is-compact .image-grid-scroll {
+  padding: var(--spacing-2);
+}
+
+/* A 44px hit area around the checkbox; taps on the padding toggle it too. */
+.app-shell.is-compact .image-tile-check {
+  top: 0;
+  left: 0;
+  padding: 10px;
+  background: transparent;
+}
+
+.app-shell.is-compact .image-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--spacing-2);
+}
+
+.compact-tabbar {
+  flex: none;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background-surface);
+  padding: var(--spacing-1) max(var(--spacing-1), env(safe-area-inset-right))
+    max(var(--spacing-1), env(safe-area-inset-bottom)) max(var(--spacing-1), env(safe-area-inset-left));
 }
