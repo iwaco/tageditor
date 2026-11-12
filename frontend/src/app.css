@@ -228,6 +228,15 @@ body {
   padding: var(--spacing-2);
 }
 
+/* The file name truncates; the tag-count badge keeps its full width. */
+.image-tile-caption > :first-child {
+  min-width: 0;
+}
+
+.image-tile-caption > :last-child {
+  flex: none;
+}
+
 .image-tile-check {
   position: absolute;
   top: var(--spacing-2);
