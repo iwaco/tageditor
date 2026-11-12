@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.config import ConfigError, load_dataset_root
 from app.models.schemas import (
     BatchAddTagsRequest,
     BatchTagsRequest,
     BatchTagsResponse,
     ImageDetailResponse,
-    OpenDatasetRequest,
     OpenDatasetResponse,
     PagedImagesResponse,
     TagStatsResponse,
@@ -28,14 +28,20 @@ repo = DatasetRepository()
 
 
 @router.post("/dataset/open", response_model=OpenDatasetResponse)
-def open_dataset(req: OpenDatasetRequest) -> OpenDatasetResponse:
+def open_dataset() -> OpenDatasetResponse:
+    # The root comes only from the server-side config; clients cannot choose a path.
     try:
-        categories, images, stats = repo.open_dataset(req.rootPath)
+        root = load_dataset_root()
+    except ConfigError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    try:
+        categories, images, stats = repo.open_dataset(str(root))
     except RepositoryError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return OpenDatasetResponse(
-        rootPath=req.rootPath,
+        rootPath=str(repo.get_root_path()),
         categories=categories,
         images=images,
         total=len(images),

@@ -47,8 +47,8 @@ Frontend modules:
 
 ### 3.1 Open dataset
 
-1. User inputs root folder path.
-2. `POST /api/dataset/open`
+1. On load, the frontend calls `POST /api/dataset/open` (no body).
+2. Backend reads the root from the TOML file in `TAGEDITOR_CONFIG` (`dataset_root`).
 3. Backend scans files and pairs image + tag file.
 4. Backend parses tags, computes stats, returns initial payload.
 
@@ -77,7 +77,7 @@ Frontend modules:
 
 ## 4. State Design (Frontend)
 
-- `datasetRootPath: string`
+- `datasetRootPath: string` (read-only, from the open response; not persisted)
 - `images: ImageEntry[]`
 - `filteredImageIds: string[]`
 - `selectedImageIds: string[]`

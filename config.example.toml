@@ -1,0 +1,3 @@
+# Copy this file and point TAGEDITOR_CONFIG to it.
+# A relative dataset_root is resolved from the directory of this file.
+dataset_root = "/path/to/lora_datasets"
