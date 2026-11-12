@@ -15,7 +15,8 @@
 
 ## 2. Backend API Tests
 
-- `POST /dataset/open` success and invalid path failure
+- `POST /dataset/open` opens the configured root and takes no path from the client
+- Config loading: valid, `TAGEDITOR_CONFIG` unset, file missing, invalid TOML, root missing
 - `GET /images` with category / hasTag / notTag filters
 - `POST /images/{id}/tags` success and conflict (409)
 - batch add/remove endpoints and stats updates
@@ -28,7 +29,8 @@
 
 ## 4. E2E (manual first)
 
-- Open dataset -> grid visible
+- Start with `TAGEDITOR_CONFIG` -> configured root opens automatically, grid visible
+- Start without `TAGEDITOR_CONFIG` -> error banner with the reason
 - Select image -> edit tags -> auto-save reflected
 - Enter detail mode -> zoom/pan -> prev/next -> Esc back
 - Tag click positive/negative filter

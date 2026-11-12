@@ -6,15 +6,12 @@ Base URL: `/api`
 
 ### `POST /dataset/open`
 
-Request:
+Opens the dataset root configured on the server. The request has no body;
+clients cannot choose the path. The server reads the TOML file named by the
+`TAGEDITOR_CONFIG` environment variable and opens its `dataset_root`
+(a relative path is resolved from the config file's directory).
 
-```json
-{
-  "rootPath": "/abs/path/to/dataset"
-}
-```
-
-Response:
+Response (`rootPath` is the resolved absolute root):
 
 ```json
 {
@@ -25,6 +22,13 @@ Response:
   "tagStats": []
 }
 ```
+
+Errors:
+
+- `500` when `TAGEDITOR_CONFIG` is unset, the config file is missing or not valid TOML,
+  `dataset_root` is missing or not a string, or the root does not exist or is not a directory.
+  `detail` holds the reason, which the UI shows.
+- `400` when scanning the root fails (e.g. a tag file is not valid UTF-8).
 
 ## 2. List Images
 
